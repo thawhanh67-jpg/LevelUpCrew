@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LevelUpCrew — Quests</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    :root { --bg:#f6f7fb; --surface:#fff; --stroke:#e6e8ef; --text:#0f172a; --primary:#3b82f6; --shadow:0 10px 24px rgba(15,23,42,.06) }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); display:flex; flex-direction:column; align-items:center; min-height:100vh }
+
+    /* NAV */
+    nav { width:100%; background:var(--surface); border-bottom:1px solid var(--stroke); box-shadow:var(--shadow); padding:14px 20px; display:flex; justify-content:center; gap:25px; position:sticky; top:0; z-index:10 }
+    nav a { color:var(--text); text-decoration:none; font-weight:600; font-size:1rem; transition:color .2s }
+    nav a:hover, nav a.active { color:var(--primary) }
+
+    header { width:100%; max-width:720px; display:flex; justify-content:space-between; align-items:center; background:var(--surface); border:1px solid var(--stroke); border-radius:16px; padding:18px 24px; box-shadow:var(--shadow); margin:25px 0 }
+    .brand { font-weight:700; font-size:1.3rem; color:var(--primary) }
+
+    .card { background:var(--surface); border:1px solid var(--stroke); border-radius:16px; box-shadow:var(--shadow); padding:20px; width:100%; max-width:720px; margin-bottom:20px }
+    .quest { display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--stroke) }
+    .quest:last-child { border-bottom:none }
+    .q-title { font-weight:700 }
+    .q-points { color:#64748b; font-size:.92rem; margin-top:2px }
+    .btn { background:var(--primary); color:#fff; border:none; border-radius:10px; padding:10px 12px; font-weight:700; cursor:pointer }
+    .btn:hover { background:#2563eb }
+    .btn.disabled { opacity:.6; cursor:not-allowed }
+
+    .finish { margin-top:16px; border:1px dashed var(--primary); background:#f8fbff; border-radius:14px; padding:14px }
+    .proof { display:flex; gap:12px; align-items:center }
+    .preview { width:72px; height:72px; border:1px solid var(--stroke); border-radius:10px; object-fit:cover; display:none }
+    .hint { color:#64748b; font-size:.9rem; margin-top:6px }
+    .empty { color:#6b7280; text-align:center; padding:12px 0 0 }
+  </style>
+</head>
+<body>
+  <!-- NAV -->
+  <nav>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="quests.html" class="active">Quests</a>
+    <a href="leaderboard.html">Leaderboard</a>
+    <a href="#" id="logoutLink">Logout</a>
+  </nav>
+
+  <header>
+    <div class="brand">LevelUpCrew</div>
+    <div id="who" class="hint"></div>
+  </header>
+
+  <div class="card">
+    <h2 style="margin:0 0 8px 0;">Available Quests</h2>
+    <div id="questList"></div>
+    <div id="noneMsg" class="empty" style="display:none;">No quests available — check back later.</div>
+
+    <!-- Finish area (appears when a quest is selected) -->
+    <div id="finishWrap" class="finish" style="display:none;">
+      <strong id="finishTitle">Finish Selected Quest</strong>
+      <div class="proof" style="margin-top:10px;">
+        <img id="preview" class="preview" alt="proof preview">
+        <input type="file" id="proofInput" accept="image/*">
+      </div>
+      <div class="hint">Upload one event photo as proof, then click Finish.</div>
+      <button class="btn" id="finishBtn" style="margin-top:10px;">Finish</button>
+    </div>
+  </div>
+
+  <script type="module">
+    // Session + logout
+    const email = localStorage.getItem('current_user');
+    if(!email){ location.href='login.html'; }
+    document.getElementById('who').textContent = email;
+    document.getElementById('logoutLink').addEventListener('click', (e)=>{
+      e.preventDefault(); localStorage.removeItem('current_user'); location.href='login.html';
+    });
+
+    // Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import {
+      getFirestore, collection, doc, getDoc, setDoc, onSnapshot, query, orderBy
+    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+    // Your LevelUpCrew config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
+      authDomain: "levelupcrew-ec008.firebaseapp.com",
+      projectId: "levelupcrew-ec008",
+      storageBucket: "levelupcrew-ec008.firebasestorage.app",
+      messagingSenderId: "112573541497",
+      appId: "1:112573541497:web:9395e25f7eb141405838a8"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    // Elements
+    const list = document.getElementById('questList');
+    const noneMsg = document.getElementById('noneMsg');
+    const finishWrap = document.getElementById('finishWrap');
+    const finishTitle = document.getElementById('finishTitle');
+    const proofInput = document.getElementById('proofInput');
+    const finishBtn = document.getElementById('finishBtn');
+    const preview = document.getElementById('preview');
+
+    const questsCol = collection(db, 'quests');
+    const userRef   = doc(db, 'users', email);
+
+    // Ensure user doc exists
+    async function ensureUser(){
+      const s = await getDoc(userRef);
+      if(!s.exists()){
+        await setDoc(userRef, { email, level:1, points:0, questId:null, quest:null, questPoints:0, completed:false, completedQuests:[] }, { merge:true });
+      }
+    }
+    await ensureUser();
+
+    // Local user state cache (from Firestore)
+    let state = (await getDoc(userRef)).data() || { level:1, points:0, completedQuests:[] };
+
+    function canSee(q){ return !Array.isArray(state.completedQuests) || !state.completedQuests.includes(q.id); }
+
+    function render(quests){
+      // Filter out quests the user already completed
+      const visible = quests.filter(canSee);
+
+      list.innerHTML = '';
+      if(visible.length === 0){
+        noneMsg.style.display = 'block';
+        finishWrap.style.display = (state.questId && !state.completed) ? 'block' : 'none';
+        return;
+      }
+      noneMsg.style.display = 'none';
+
+      visible.forEach(q=>{
+        const div = document.createElement('div');
+        const isSel = state.questId === q.id && !state.completed;
+        div.className = 'quest';
+        div.innerHTML = `
+          <div>
+            <div class="q-title">${q.title}</div>
+            <div class="q-points">+ ${q.points} pts</div>
+          </div>
+          <button class="btn ${isSel?'disabled':''}" data-id="${q.id}" data-title="${q.title}" data-pts="${q.points}">
+            ${isSel ? 'Selected' : 'Start'}
+          </button>
+        `;
+        list.appendChild(div);
+      });
+
+      const sel = visible.find(x => x.id === state.questId);
+      if(sel && !state.completed){
+        finishTitle.textContent = `Finish: ${sel.title}`;
+        finishWrap.style.display = 'block';
+      } else {
+        finishWrap.style.display = 'none';
+        preview.style.display='none';
+        proofInput.value='';
+      }
+    }
+
+    // Subscribe to quests (live)
+    onSnapshot(query(questsCol, orderBy('createdAt','desc')), (snap)=>{
+      const quests = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      render(quests);
+    });
+
+    // Subscribe to THIS user (keep state fresh if completed elsewhere)
+    onSnapshot(userRef, (snap)=>{
+      if(snap.exists()){
+        state = snap.data() || state;
+      }
+    });
+
+    // Select quest
+    list.addEventListener('click', async (e)=>{
+      const btn = e.target.closest('button'); if(!btn) return;
+      if(btn.classList.contains('disabled')) return; // already selected
+      const id = btn.dataset.id, title = btn.dataset.title, pts = Number(btn.dataset.pts||0);
+
+      state.questId = id; state.quest = title; state.questPoints = pts; state.completed = false; state.proof=null;
+      await setDoc(userRef, { questId:id, quest:title, questPoints:pts, completed:false, proof:null }, { merge:true });
+
+      finishTitle.textContent = `Finish: ${title}`;
+      finishWrap.style.display='block';
+      // Re-render list buttons to reflect “Selected”
+      // (They’ll update on next onSnapshot too)
+      btn.textContent = 'Selected'; btn.classList.add('disabled');
+    });
+
+    // Proof preview
+    proofInput.addEventListener('change', ()=>{
+      const file = proofInput.files && proofInput.files[0];
+      if(!file){ preview.style.display='none'; return; }
+      const reader = new FileReader();
+      reader.onload = ()=>{ preview.src = reader.result; preview.style.display='block'; };
+      reader.readAsDataURL(file);
+    });
+
+    // Finish quest → award points, level up (every 100), mark completed, clear active quest
+    finishBtn.addEventListener('click', async ()=>{
+      const file = proofInput.files && proofInput.files[0];
+      if(!file){ alert('Please upload one event photo as proof.'); return; }
+
+      const reader = new FileReader();
+      reader.onload = async ()=>{
+        // Refresh state from Firestore to avoid conflicts
+        const snap = await getDoc(userRef);
+        state = snap.exists() ? snap.data() : state;
+
+        if(!state.questId){ alert('No active quest selected.'); return; }
+
+        const ptsEarned = Number(state.questPoints||0);
+        let newPts = Number(state.points||0) + ptsEarned;
+        let lvl = Number(state.level||1);
+
+        while(newPts >= 100){ newPts -= 100; lvl += 1; }
+
+        const completed = Array.isArray(state.completedQuests) ? state.completedQuests.slice() : [];
+        if(!completed.includes(state.questId)) completed.push(state.questId);
+
+        await setDoc(userRef, {
+          proof: reader.result,         // base64 image (simple demo)
+          points: newPts,
+          level: lvl,
+          completedQuests: completed,
+          // clear active quest
+          questId: null, quest: null, questPoints: 0, completed: true
+        }, { merge:true });
+
+        alert(`Finished! +${ptsEarned} pts awarded.`);
+        proofInput.value=''; preview.style.display='none';
+        // Local state update (optional; onSnapshot will also refresh)
+        state.points = newPts; state.level = lvl; state.completedQuests = completed;
+        state.questId = null; state.quest = null; state.questPoints = 0; state.completed = true;
+        finishWrap.style.display='none';
+      };
+      reader.readAsDataURL(file);
+    });
+  </script>
+</body>
+</html>
+

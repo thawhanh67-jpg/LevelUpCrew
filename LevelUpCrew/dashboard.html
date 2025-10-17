@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LevelUpCrew — Dashboard</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    :root { --bg:#f6f7fb; --surface:#fff; --stroke:#e6e8ef; --text:#0f172a; --muted:#6b7280; --primary:#3b82f6; --ok:#10b981; --shadow:0 10px 24px rgba(15,23,42,.06) }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;min-height:100vh}
+    /* NAV */
+    nav{width:100%;background:var(--surface);border-bottom:1px solid var(--stroke);box-shadow:var(--shadow);padding:14px 20px;display:flex;justify-content:center;gap:25px;position:sticky;top:0;z-index:10}
+    nav a{color:var(--text);text-decoration:none;font-weight:600;font-size:1rem;transition:color .2s}
+    nav a:hover, nav a.active{color:var(--primary)}
+    header{width:100%;max-width:900px;display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--stroke);border-radius:16px;padding:18px 24px;box-shadow:var(--shadow);margin:25px 0}
+    .brand{font-weight:700;font-size:1.3rem;color:var(--primary)}
+    .card{background:var(--surface);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);padding:20px;width:100%;max-width:900px;margin-bottom:20px}
+    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+    h2{margin:0 0 10px 0;font-size:1.1rem}
+    .metric{display:flex;align-items:center;justify-content:space-between}
+    .big{font-size:1.6rem;font-weight:800}
+    .muted{color:var(--muted)}
+    .bar{height:12px;background:#eef2ff;border-radius:999px;overflow:hidden;border:1px solid var(--stroke)}
+    .fill{height:100%;background:var(--primary);width:0%}
+    .btn{background:var(--primary);color:#fff;border:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn:hover{background:#2563eb}
+    .btn-ghost{background:#eef2ff;color:#1e293b;border:none;border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
+    .badge{display:inline-flex;align-items:center;gap:8px;background:#f1f5f9;border:1px solid var(--stroke);padding:10px 12px;border-radius:999px;font-weight:700}
+    .badge-dot{width:12px;height:12px;border-radius:999px;background:var(--primary)}
+    .good{color:var(--ok)}
+    .quest-chip{display:inline-block;background:#fff;border:1px dashed var(--primary);padding:8px 10px;border-radius:10px;font-weight:600}
+    .empty{color:#6b7280}
+  </style>
+</head>
+<body>
+  <!-- NAV -->
+  <nav>
+    <a href="dashboard.html" class="active">Dashboard</a>
+    <a href="quests.html">Quests</a>
+    <a href="leaderboard.html">Leaderboard</a>
+    <a href="#" id="logoutLink">Logout</a>
+  </nav>
+
+  <header>
+    <div class="brand">LevelUpCrew</div>
+    <div id="who" class="muted"></div>
+  </header>
+
+  <!-- Top metrics -->
+  <div class="row" style="max-width:900px;width:100%">
+    <div class="card">
+      <h2>Level & Points</h2>
+      <div class="metric"><div class="big" id="lvlTxt">Lv. 1</div><div class="muted" id="ptsTxt">0 / 100 pts</div></div>
+      <div class="bar" style="margin-top:10px"><div id="barFill" class="fill"></div></div>
+      <div class="muted" style="margin-top:6px">Earn <span id="toNext" class="good">100</span> more points to reach next level.</div>
+    </div>
+
+    <div class="card">
+      <h2>Badge</h2>
+      <div class="metric">
+        <div class="badge"><span class="badge-dot" id="badgeDot"></span><span id="badgeName">Beginner</span></div>
+        <div class="muted" id="badgeRange">Levels 1–9</div>
+      </div>
+      <div class="bar" style="margin-top:10px"><div id="badgeFill" class="fill"></div></div>
+      <div class="muted" style="margin-top:6px" id="badgeNextText">Next badge at Lv. 10</div>
+    </div>
+
+    <div class="card">
+      <h2>Your Rank</h2>
+      <div class="metric">
+        <div class="big" id="rankTxt">#—</div>
+        <button class="btn-ghost" onclick="location.href='leaderboard.html'">View leaderboard</button>
+      </div>
+      <div class="muted" id="rankHint">Rank is calculated by Level, then Points.</div>
+    </div>
+  </div>
+
+  <!-- Current quest -->
+  <div class="card" style="max-width:900px;width:100%">
+    <h2>Current Quest</h2>
+    <div id="questWrap"></div>
+    <div style="margin-top:12px">
+      <button class="btn" onclick="location.href='quests.html'">Go to Quests</button>
+    </div>
+  </div>
+
+  <script type="module">
+    // Session + logout
+    const email = localStorage.getItem('current_user');
+    if(!email){ location.href='login.html'; }
+    document.getElementById('who').textContent = email;
+    document.getElementById('logoutLink').addEventListener('click', (e)=>{
+      e.preventDefault(); localStorage.removeItem('current_user'); location.href='login.html';
+    });
+
+    // Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, setDoc, collection, onSnapshot, query, orderBy
+    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
+      authDomain: "levelupcrew-ec008.firebaseapp.com",
+      projectId: "levelupcrew-ec008",
+      storageBucket: "levelupcrew-ec008.firebasestorage.app",
+      messagingSenderId: "112573541497",
+      appId: "1:112573541497:web:9395e25f7eb141405838a8"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    // Elements
+    const lvlTxt = document.getElementById('lvlTxt');
+    const ptsTxt = document.getElementById('ptsTxt');
+    const barFill = document.getElementById('barFill');
+    const toNext = document.getElementById('toNext');
+
+    const badgeName = document.getElementById('badgeName');
+    const badgeDot  = document.getElementById('badgeDot');
+    const badgeRange = document.getElementById('badgeRange');
+    const badgeFill  = document.getElementById('badgeFill');
+    const badgeNextText = document.getElementById('badgeNextText');
+
+    const rankTxt = document.getElementById('rankTxt');
+    const rankHint = document.getElementById('rankHint');
+
+    const questWrap = document.getElementById('questWrap');
+
+    function getBadge(level){
+      if(level >= 50) return { name:'Diamond', color:'#6d28d9', min:50, max:null };
+      if(level >= 40) return { name:'Platinum', color:'#0ea5e9', min:40, max:49 };
+      if(level >= 30) return { name:'Gold', color:'#f59e0b', min:30, max:39 };
+      if(level >= 20) return { name:'Silver', color:'#94a3b8', min:20, max:29 };
+      if(level >= 10) return { name:'Bronze', color:'#b45309', min:10, max:19 };
+      return { name:'Beginner', color:'#10b981', min:1, max:9 };
+    }
+
+    async function normalizeLevel(userRef, st){
+      // carry over 100-pt chunks into levels, then save back
+      let pts = Number(st.points||0), lvl = Number(st.level||1);
+      let changed = false;
+      while(pts >= 100){ pts -= 100; lvl += 1; changed = true; }
+      if(pts < 0){ pts = 0; changed = true; }
+      if(!lvl || lvl < 1){ lvl = 1; changed = true; }
+      if(changed){
+        await setDoc(userRef, { points: pts, level: lvl }, { merge:true });
+        st.points = pts; st.level = lvl;
+      }
+      return st;
+    }
+
+    function renderLevel(st){
+      lvlTxt.textContent = `Lv. ${st.level||1}`;
+      const p = Number(st.points||0);
+      ptsTxt.textContent = `${p} / 100 pts`;
+      barFill.style.width = Math.max(0, Math.min(p, 100)) + '%';
+      toNext.textContent = (100 - p);
+    }
+
+    function renderBadge(st){
+      const b = getBadge(Number(st.level||1));
+      badgeName.textContent = b.name;
+      badgeDot.style.background = b.color;
+      badgeRange.textContent = b.max == null ? `Level ${b.min}+` : `Levels ${b.min}–${b.max}`;
+      const tierMin = (b.min===1)?1:b.min;
+      const within = Math.max(0, Math.min((st.level - tierMin + 1), 10));
+      const pct = (b.max==null) ? 100 : (within/10)*100;
+      badgeFill.style.width = pct + '%';
+      const nextBadgeAt = (st.level >= 50) ? null : (Math.floor(st.level/10)+1)*10;
+      badgeNextText.textContent = nextBadgeAt ? `Next badge at Lv. ${nextBadgeAt}` : `Highest badge achieved`;
+    }
+
+    function renderQuest(st){
+      if(st.quest && !st.completed){
+        questWrap.innerHTML = `
+          <div class="quest-chip">In progress: ${st.quest} • +${st.questPoints||0} pts</div>
+          <div class="muted" style="margin-top:6px">Finish and upload proof in the Quests page.</div>
+        `;
+      } else {
+        questWrap.innerHTML = `<span class="empty">No active quest. Click “Go to Quests” to choose one.</span>`;
+      }
+    }
+
+    function computeRankRows(rows){
+      // sort by level desc, points desc, then email
+      rows.sort((a,b)=> (Number(b.level||1)-Number(a.level||1)) || (Number(b.points||0)-Number(a.points||0)) || (a.email||'').localeCompare(b.email||''));
+      return rows;
+    }
+
+    function renderRank(rows){
+      const idx = rows.findIndex(r => r.email === email);
+      if(idx === -1){
+        rankTxt.textContent = '#—';
+        rankHint.textContent = 'Rank unavailable.';
+      } else {
+        rankTxt.textContent = '#' + (idx + 1);
+        rankHint.textContent = `Out of ${rows.length} students.`;
+      }
+    }
+
+    // Live subscribe to THIS user
+    const userRef = doc(db, 'users', email);
+    onSnapshot(userRef, async (snap)=>{
+      if(!snap.exists()){
+        // Initialize user on first open
+        await setDoc(userRef, { email, level:1, points:0, completed:false, quest:null, questId:null, questPoints:0, completedQuests:[] }, { merge:true });
+        return;
+      }
+      let st = snap.data() || {};
+      st = await normalizeLevel(userRef, st);
+      renderLevel(st);
+      renderBadge(st);
+      renderQuest(st);
+    });
+
+    // Live subscribe to all users for rank
+    const usersQ = query(collection(db,'users'), orderBy('level','desc'), orderBy('points','desc'));
+    onSnapshot(usersQ, (snap)=>{
+      const rows = snap.docs.map(d=>({ email:d.id, ...(d.data()||{}) }));
+      renderRank(computeRankRows(rows));
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LevelUpCrew — Login</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
+  <style>
+    :root{
+      --bg:#f6f7fb; --surface:#fff; --stroke:#e6e8ef; --text:#0f172a;
+      --primary:#3b82f6; --radius:16px; --shadow:0 10px 24px rgba(15,23,42,.06);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Inter,system-ui,sans-serif; background:var(--bg); color:var(--text);
+      min-height:100vh; display:flex; align-items:center; justify-content:center;
+      padding:20px;
+    }
+    .login-card{
+      width:100%; max-width:420px; background:var(--surface); border-radius:var(--radius);
+      border:1px solid var(--stroke); box-shadow:var(--shadow); padding:36px; text-align:center;
+    }
+    h1{margin:0 0 18px; color:var(--primary); font-size:1.5rem; font-weight:700}
+    input{
+      width:100%; padding:12px 14px; margin:10px 0; border:1px solid var(--stroke);
+      border-radius:10px; font-size:1rem;
+    }
+    button{
+      width:100%; padding:12px; margin-top:8px; border-radius:10px; border:0;
+      background:var(--primary); color:#fff; font-weight:700; cursor:pointer;
+    }
+    button:hover{background:#2563eb}
+    .muted{color:#6b7280;font-size:.92rem;margin-top:12px}
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <h1>LevelUpCrew</h1>
+    <form id="loginForm" novalidate>
+      <!-- keep inputmode=email so phones show the email keyboard -->
+      <input type="text" id="email" inputmode="email" autocomplete="email"
+             placeholder="Enter your RSU student email" required>
+      <input type="text" id="password" placeholder="Enter your passbook number" required>
+      <button type="submit">Login</button>
+      <p class="muted">Only RSU student emails (ending with <code>@rsu.ac.th</code>) are allowed.</p>
+    </form>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+    // Firebase config (LevelUpCrew)
+    const firebaseConfig = {
+      apiKey: "AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
+      authDomain: "levelupcrew-ec008.firebaseapp.com",
+      projectId: "levelupcrew-ec008",
+      storageBucket: "levelupcrew-ec008.firebasestorage.app",
+      messagingSenderId: "112573541497",
+      appId: "1:112573541497:web:9395e25f7eb141405838a8"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    const form = document.getElementById('loginForm');
+    const emailEl = document.getElementById('email');
+    const passEl  = document.getElementById('password');
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+
+      const emailInput = emailEl.value.trim();
+      const password   = passEl.value.trim();
+
+      // ADMIN bypass retained (no UI hint). Admin credential handled here.
+      if (emailInput === 'adminaccess1111') {
+        localStorage.setItem('current_user', 'adminaccess1111');
+        location.href = 'admin.html';
+        return;
+      }
+
+      const email = emailInput.toLowerCase();
+      if (!email.endsWith('@rsu.ac.th')) {
+        alert('Only RSU email addresses are allowed (example: student@rsu.ac.th).');
+        emailEl.focus();
+        return;
+      }
+      if (!password) {
+        alert('Please enter your passbook number.');
+        passEl.focus();
+        return;
+      }
+
+      const ref = doc(db, 'users', email);
+      const snap = await getDoc(ref);
+
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.password === password) {
+          localStorage.setItem('current_user', email);
+          location.href = 'dashboard.html';
+        } else {
+          alert('Incorrect passbook number.');
+        }
+      } else {
+        // create new student account
+        await setDoc(ref, {
+          email,
+          password,
+          level: 1,
+          points: 0,
+          badge: 'Beginner',
+          completedQuests: []
+        });
+        localStorage.setItem('current_user', email);
+        location.href = 'dashboard.html';
+      }
+    });
+  </script>
+</body>
+</html>
