@@ -27,6 +27,11 @@
     .alert{border:1px solid #fecaca;background:#fee2e2;padding:10px;border-radius:10px;color:#7f1d1d}
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
     @media (max-width:900px){.grid2{grid-template-columns:1fr}}
+
+    /* proof thumbnails */
+    .thumb{max-width:140px;max-height:140px;border-radius:10px;border:1px solid var(--stroke);object-fit:cover}
+    .nowrap{white-space:nowrap}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
   </style>
 </head>
 <body>
@@ -95,7 +100,7 @@
       <table>
         <thead>
           <tr>
-            <th>Time</th><th>User</th><th>Quest</th><th>Points</th><th>Proof</th><th style="width:140px">Actions</th>
+            <th>Time</th><th>User</th><th>Quest</th><th>Points</th><th>Proof</th><th style="width:190px">Actions</th>
           </tr>
         </thead>
         <tbody id="subBody"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
@@ -121,7 +126,7 @@
   </div>
 
   <script type="module">
-    // --------- Safe admin gate (no blank page) ---------
+    // --------- Safe admin gate ---------
     const who = localStorage.getItem('current_user') || '';
     const guard = document.getElementById('guardMsg');
     document.getElementById('logout').addEventListener('click', ()=>{ localStorage.removeItem('current_user'); location.href='login.html'; });
@@ -141,25 +146,22 @@
         query, where
       } = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js");
 
-      // --- Firebase config (note: correct Storage bucket used on student pages) ---
       const cfg = {
         apiKey:"AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
         authDomain:"levelupcrew-ec008.firebaseapp.com",
         projectId:"levelupcrew-ec008",
-        storageBucket:"levelupcrew-ec008.appspot.com",
         messagingSenderId:"112573541497",
         appId:"1:112573541497:web:9395e25f7eb141405838a8"
       };
       const app = initializeApp(cfg);
       const db  = getFirestore(app);
 
-      // On-page error panel
+      // Error panel
       const pageError = document.createElement('div');
       pageError.style.cssText = 'max-width:1100px;margin:12px auto;padding:12px;border:1px solid #fecaca;background:#fee2e2;color:#7f1d1d;border-radius:12px;display:none';
       document.body.prepend(pageError);
       const fatal = (m,e)=>{ pageError.style.display='block'; pageError.innerHTML = `<b>Error:</b> ${m}<pre style="white-space:pre-wrap">${(e?.message||e||'')}</pre>`; console.error(m,e); };
 
-      // Global refresh
       document.getElementById('refreshAdmin').addEventListener('click', async ()=>{
         await Promise.all([loadQuests(), loadQuestNumbers(), loadMemberNumbers(), loadSubmissions(), loadUsers()]);
       });
@@ -250,7 +252,7 @@
         }catch(e){ fatal('loadMemberNumbers failed', e); }
       }
 
-      // ---- Submissions (Proofs) ----
+      // ---- Submissions (Proofs: photo-only, inline in Firestore) ----
       const subBody = document.getElementById('subBody');
       const subSearch = document.getElementById('subSearch');
       const subStatus = document.getElementById('subStatus');
@@ -281,14 +283,26 @@
         if(!list.length){ subBody.innerHTML = `<tr><td colspan="6" class="muted">No submissions.</td></tr>`; return; }
         subBody.innerHTML = list.map(s=>{
           const when = s.createdAt ? new Date(s.createdAt).toLocaleString() : '—';
-          const proof = s.mediaUrl ? `<a class="btn ghost" href="${s.mediaUrl}" target="_blank">Open</a>` : '—';
+          const isDataUrl = typeof s.mediaUrl === 'string' && s.mediaUrl.startsWith('data:image/');
+          const thumb = s.mediaUrl
+            ? `<img class="thumb" src="${s.mediaUrl}" alt="proof">`
+            : '—';
+          const open = s.mediaUrl
+            ? `<a class="btn ghost" href="${s.mediaUrl}" target="_blank">Open</a>`
+            : '';
+          const dl = s.mediaUrl && isDataUrl
+            ? `<a class="btn ghost" href="${s.mediaUrl}" download="proof.jpg">Download</a>`
+            : (s.mediaUrl ? `<a class="btn ghost" href="${s.mediaUrl}" target="_blank" download>Download</a>` : '');
           return `<tr>
-            <td>${when}</td>
+            <td class="nowrap">${when}</td>
             <td>${s.user||'—'}</td>
             <td>${s.questTitle||s.questId||'—'}</td>
             <td>${s.points??0}</td>
-            <td>${proof}</td>
-            <td><button class="btn del" data-del-sub="${s.id}">Remove</button></td>
+            <td>${thumb}</td>
+            <td class="actions">
+              ${open} ${dl}
+              <button class="btn del" data-del-sub="${s.id}">Remove</button>
+            </td>
           </tr>`;
         }).join('');
       }
@@ -331,7 +345,7 @@
       async function loadUsers(){
         uBody.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`; uClear();
         try{
-          const snap = await getDocs(collection(db,'users')); // no orderBy to avoid missing field issues
+          const snap = await getDocs(collection(db,'users'));
           allUsers = snap.docs.map(d=>({ id:d.id, ...d.data() })).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
           renderUsers(search.value);
         }catch(e){ uSet('<div class="alert">Error loading users.</div>'); console.error(e); }
@@ -367,4 +381,3 @@
   </script>
 </body>
 </html>
-
