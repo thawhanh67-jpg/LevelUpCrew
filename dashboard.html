@@ -35,13 +35,12 @@
 </head>
 <body>
   <!-- NAV -->
-<nav>
-  <a href="dashboard.html" class="active">Dashboard</a>
-  <a href="quests.html">Quests</a>
-  <a href="leaderboard.html">Leaderboard</a>
-  <a href="profile.html">Profile</a>
-</nav>
-
+  <nav>
+    <a href="dashboard.html" class="active">Dashboard</a>
+    <a href="quests.html">Quests</a>
+    <a href="leaderboard.html">Leaderboard</a>
+    <a href="profile.html">Profile</a>
+  </nav>
 
   <header>
     <div class="brand">LevelUpCrew</div>
@@ -87,15 +86,13 @@
   </div>
 
   <script type="module">
-    // Session + logout
-    const email = localStorage.getItem('current_user');
+    // Session
+    const email = (localStorage.getItem('current_user')||'').toLowerCase();
     if(!email){ location.href='login.html'; }
+    if(email==='adminaccess1111'){ location.href='admin.html'; }
     document.getElementById('who').textContent = email;
-    document.getElementById('logoutLink').addEventListener('click', (e)=>{
-      e.preventDefault(); localStorage.removeItem('current_user'); location.href='login.html';
-    });
 
-    // Firebase
+    // Firebase (no Storage needed here)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
     import {
       getFirestore, doc, getDoc, setDoc, collection, onSnapshot, query, orderBy
@@ -105,7 +102,6 @@
       apiKey: "AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
       authDomain: "levelupcrew-ec008.firebaseapp.com",
       projectId: "levelupcrew-ec008",
-      storageBucket: "levelupcrew-ec008.firebasestorage.app",
       messagingSenderId: "112573541497",
       appId: "1:112573541497:web:9395e25f7eb141405838a8"
     };
@@ -153,30 +149,34 @@
     }
 
     function renderLevel(st){
-      lvlTxt.textContent = `Lv. ${st.level||1}`;
-      const p = Number(st.points||0);
+      const p = Math.max(0, Number(st.points||0));
+      const lv = Math.max(1, Number(st.level||1));
+      lvlTxt.textContent = `Lv. ${lv}`;
       ptsTxt.textContent = `${p} / 100 pts`;
-      barFill.style.width = Math.max(0, Math.min(p, 100)) + '%';
-      toNext.textContent = (100 - p);
+      barFill.style.width = Math.min(100, p) + '%';
+      toNext.textContent = (100 - Math.min(100, p));
     }
 
     function renderBadge(st){
-      const b = getBadge(Number(st.level||1));
+      const lv = Math.max(1, Number(st.level||1));
+      const b = getBadge(lv);
       badgeName.textContent = b.name;
       badgeDot.style.background = b.color;
       badgeRange.textContent = b.max == null ? `Level ${b.min}+` : `Levels ${b.min}–${b.max}`;
       const tierMin = (b.min===1)?1:b.min;
-      const within = Math.max(0, Math.min((st.level - tierMin + 1), 10));
+      const within = Math.max(0, Math.min((lv - tierMin + 1), 10));
       const pct = (b.max==null) ? 100 : (within/10)*100;
       badgeFill.style.width = pct + '%';
-      const nextBadgeAt = (st.level >= 50) ? null : (Math.floor(st.level/10)+1)*10;
+      const nextBadgeAt = (lv >= 50) ? null : (Math.floor(lv/10)+1)*10;
       badgeNextText.textContent = nextBadgeAt ? `Next badge at Lv. ${nextBadgeAt}` : `Highest badge achieved`;
     }
 
     function renderQuest(st){
-      if(st.quest && !st.completed){
+      // ✅ use the same field written by Quests page
+      const wq = st.weeklyQuest; // { id, title, points } or null
+      if(wq && wq.id){
         questWrap.innerHTML = `
-          <div class="quest-chip">In progress: ${st.quest} • +${st.questPoints||0} pts</div>
+          <div class="quest-chip">In progress: ${wq.title || '(no title)'} • +${Number(wq.points||0)} pts</div>
           <div class="muted" style="margin-top:6px">Finish and upload proof in the Quests page.</div>
         `;
       } else {
@@ -185,13 +185,13 @@
     }
 
     function computeRankRows(rows){
-      // sort by level desc, points desc, then email
+      // sort by level desc, points desc, then email asc
       rows.sort((a,b)=> (Number(b.level||1)-Number(a.level||1)) || (Number(b.points||0)-Number(a.points||0)) || (a.email||'').localeCompare(b.email||''));
       return rows;
     }
 
     function renderRank(rows){
-      const idx = rows.findIndex(r => r.email === email);
+      const idx = rows.findIndex(r => (r.email||'').toLowerCase() === email);
       if(idx === -1){
         rankTxt.textContent = '#—';
         rankHint.textContent = 'Rank unavailable.';
@@ -205,8 +205,7 @@
     const userRef = doc(db, 'users', email);
     onSnapshot(userRef, async (snap)=>{
       if(!snap.exists()){
-        // Initialize user on first open
-        await setDoc(userRef, { email, level:1, points:0, completed:false, quest:null, questId:null, questPoints:0, completedQuests:[] }, { merge:true });
+        await setDoc(userRef, { email, level:1, points:0, completedQuests:[], weeklyQuest:null, createdAt: Date.now() }, { merge:true });
         return;
       }
       let st = snap.data() || {};
@@ -225,5 +224,6 @@
   </script>
 </body>
 </html>
+
 
 
