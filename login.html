@@ -47,75 +47,74 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-    // Firebase config (LevelUpCrew)
-    const firebaseConfig = {
-      apiKey: "AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
-      authDomain: "levelupcrew-ec008.firebaseapp.com",
-      projectId: "levelupcrew-ec008",
-      storageBucket: "levelupcrew-ec008.firebasestorage.app",
-      messagingSenderId: "112573541497",
-      appId: "1:112573541497:web:9395e25f7eb141405838a8"
-    };
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
+  const cfg = {
+    apiKey:"AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
+    authDomain:"levelupcrew-ec008.firebaseapp.com",
+    projectId:"levelupcrew-ec008",
+    storageBucket:"levelupcrew-ec008.firebasestorage.app",
+    messagingSenderId:"112573541497",
+    appId:"1:112573541497:web:9395e25f7eb141405838a8"
+  };
+  const app = initializeApp(cfg);
+  const db  = getFirestore(app);
 
-    const form = document.getElementById('loginForm');
-    const emailEl = document.getElementById('email');
-    const passEl  = document.getElementById('password');
+  const form = document.getElementById('loginForm');
+  const emailInput = document.getElementById('email');
+  const passInput  = document.getElementById('password'); // passbook number
 
-    form.addEventListener('submit', async (e)=>{
-      e.preventDefault();
+  async function ensureUserDoc(email, passbook) {
+    const ref = doc(db, 'users', email);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        email,
+        displayName: '',
+        level: 1,
+        points: 0,
+        password: String(passbook || ''), // store passbook
+        createdAt: Date.now(),
+        completedQuests: []
+      });
+    } else {
+      // keep password in sync if admin reset or first-time add now
+      if (passbook) await updateDoc(ref, { password: String(passbook) });
+    }
+  }
 
-      const emailInput = emailEl.value.trim();
-      const password   = passEl.value.trim();
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-      // ADMIN bypass retained (no UI hint). Admin credential handled here.
-      if (emailInput === 'adminaccess1111') {
-        localStorage.setItem('current_user', 'adminaccess1111');
-        location.href = 'admin.html';
-        return;
-      }
+    const email = emailInput.value.trim().toLowerCase();
+    const pass  = passInput.value.trim();
 
-      const email = emailInput.toLowerCase();
-      if (!email.endsWith('@rsu.ac.th')) {
-        alert('Only RSU email addresses are allowed (example: student@rsu.ac.th).');
-        emailEl.focus();
-        return;
-      }
-      if (!password) {
-        alert('Please enter your passbook number.');
-        passEl.focus();
-        return;
-      }
+    // Admin (no password required by your spec)
+    if (email === 'adminaccess1111') {
+      localStorage.setItem('current_user', 'adminaccess1111');
+      location.href = 'admin.html';
+      return;
+    }
 
-      const ref = doc(db, 'users', email);
-      const snap = await getDoc(ref);
+    // RSU email check
+    const rsu = /^[a-z0-9._%+-]+@rsu\.ac\.th$/i;
+    if (!rsu.test(email)) {
+      alert('Use your RSU email (…@rsu.ac.th)');
+      return;
+    }
+    if (!pass) {
+      alert('Enter your passbook number');
+      return;
+    }
 
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.password === password) {
-          localStorage.setItem('current_user', email);
-          location.href = 'dashboard.html';
-        } else {
-          alert('Incorrect passbook number.');
-        }
-      } else {
-        // create new student account
-        await setDoc(ref, {
-          email,
-          password,
-          level: 1,
-          points: 0,
-          badge: 'Beginner',
-          completedQuests: []
-        });
-        localStorage.setItem('current_user', email);
-        location.href = 'dashboard.html';
-      }
-    });
-  </script>
-</body>
-</html>
+    try {
+      await ensureUserDoc(email, pass);
+      localStorage.setItem('current_user', email);
+      location.href = 'dashboard.html';
+    } catch (err) {
+      console.error(err);
+      alert('Login failed. Check your network and try again.');
+    }
+  });
+</script>
