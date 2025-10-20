@@ -68,188 +68,22 @@
 
   <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, setDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
-
-  // Session guard
-  const email=(localStorage.getItem('current_user')||'').toLowerCase();
-  if(!email) location.href='login.html';
-  if(email==='adminaccess1111'){ location.href='admin.html'; }
-
-  // Navbar: logout link was removed — guard in case any remains in HTML
-  const logoutLink = document.getElementById('logoutLink');
-  if (logoutLink) {
-    logoutLink.addEventListener('click', (e)=>{
-      e.preventDefault();
-      localStorage.removeItem('current_user');
-      location.href='login.html';
-    });
-  }
-
-  const cfg={apiKey:"AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",authDomain:"levelupcrew-ec008.firebaseapp.com",projectId:"levelupcrew-ec008",storageBucket:"levelupcrew-ec008.firebasestorage.app",messagingSenderId:"112573541497",appId:"1:112573541497:web:9395e25f7eb141405838a8"};
-  const app=initializeApp(cfg); 
-  const db=getFirestore(app); 
-  const storage=getStorage(app);
-
-  const list=document.getElementById('list');
-
-  function badgeName(level){ if(level>=50) return 'Diamond'; if(level>=40) return 'Platinum'; if(level>=30) return 'Gold'; if(level>=20) return 'Silver'; if(level>=10) return 'Bronze'; return 'Beginner'; }
-
-  async function ensureUser(){
-    const rf=doc(db,'users',email); 
-    const s=await getDoc(rf);
-    if(!s.exists()){
-      await setDoc(rf,{email,level:1,points:0,badge:'Beginner',completedQuests:[],createdAt:Date.now()});
-      return (await getDoc(rf)).data();
-    }
-    return s.data();
-  }
-
-  function questCard(q, currentId, completed){
-    const isDone=completed.includes(q.id);
-    const isCurrent=currentId===q.id;
-    return `
-      <div class="card ${isCurrent?'current':''}">
-        <div class="quest">
-          <div>
-            <div class="q-title">${q.title}</div>
-            <div class="q-points">+${q.points} points</div>
-          </div>
-          <button class="btn ${isDone?'disabled':''}" data-id="${q.id}" data-title="${q.title}" data-p="${q.points}" ${isDone?'disabled':''}>
-            ${isDone?'Completed':'Start'}
-          </button>
-        </div>
-        <div class="finish" data-finish="${q.id}" style="display:${isCurrent?'block':'none'}">
-          <div class="muted" style="margin-bottom:8px">Upload proof (photo or video). One file is enough.</div>
-          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-            <img class="preview" id="img-${q.id}" style="display:none" alt="">
-            <video class="preview" id="vid-${q.id}" style="display:none" controls></video>
-            <input type="file" accept="image/*,video/*" id="file-${q.id}">
-            <button class="btn" data-finishbtn="${q.id}">Finish</button>
-          </div>
-        </div>
-      </div>`;
-  }
-
-  async function render(){
-    try{
-      const user = await ensureUser();
-      const done = user.completedQuests || [];
-      const weeklyId = (user.weeklyQuest || {}).id;
-
-      // Load quests
-      const snap = await getDocs(collection(db,'quests'));
-      const quests = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-      if (!quests.length) {
-        list.innerHTML = `
-          <div class="card">
-            <div style="font-weight:700;margin-bottom:6px">No quests available</div>
-            <div class="muted">Ask your admin to add quests in the Admin panel.</div>
-          </div>`;
-        return;
-      }
-
-      // Sort by createdAt, then title
-      quests.sort((a,b)=> (a.createdAt||0)-(b.createdAt||0) || String(a.title).localeCompare(String(b.title)));
-
-      // Render list
-      list.innerHTML = quests.map(q=>questCard(q, weeklyId, done)).join('');
-
-      // Hook up Start buttons
-      list.querySelectorAll('button[data-id]').forEach(btn=>{
-        btn.addEventListener('click', async ()=>{
-          if(btn.classList.contains('disabled')) return;
-          const id=btn.dataset.id, points=Number(btn.dataset.p), title=btn.dataset.title;
-          await updateDoc(doc(db,'users',email),{ weeklyQuest:{id,title,points} });
-          render();
-        });
-      });
-
-      // Preview
-      list.querySelectorAll('input[type=file]').forEach(inp=>{
-        inp.addEventListener('change', (e)=>{
-          const file=e.target.files[0]; if(!file) return;
-          const id=e.target.id.replace('file-','');
-          const isVideo=file.type.startsWith('video/');
-          const img=document.getElementById('img-'+id);
-          const vid=document.getElementById('vid-'+id);
-          if(isVideo){ img.style.display='none'; vid.style.display='block'; vid.src=URL.createObjectURL(file); }
-          else { vid.style.display='none'; img.style.display='block'; img.src=URL.createObjectURL(file); }
-        });
-      });
-
-      // Finish
-      list.querySelectorAll('button[data-finishbtn]').forEach(btn=>{
-        btn.addEventListener('click', async ()=>{
-          const id=btn.dataset.finishbtn;
-          const file=document.getElementById('file-'+id).files[0];
-          if(!file){ alert('Please upload a photo or video.'); return; }
-
-          // Upload to Storage
-          const ts=Date.now();
-          const ext=(file.name.split('.').pop()||'bin').toLowerCase();
-          const sref=ref(storage,`proofs/${encodeURIComponent(email)}/${id}/${ts}.${ext}`);
-          await uploadBytes(sref,file);
-          const url=await getDownloadURL(sref);
-          const mediaType=file.type.startsWith('video/')?'video':'image';
-
-          // Re-read user (get current weekly quest & points)
-          const uref=doc(db,'users',email);
-          const snap=await getDoc(uref); 
-          const d=snap.data();
-          const w=d.weeklyQuest;
-          if(!w || w.id!==id){ alert('Please select this quest first.'); return; }
-
-          // Record completion (for analytics)
-          await addDoc(collection(db,'completions'),{
-            user: email, questId: id, questTitle: w.title, points: Number(w.points||0),
-            mediaType, mediaUrl: url, createdAt: ts
-          });
-
-          // Update user points/level
-          let points=Number(d.points||0)+Number(w.points||0);
-          let level=Number(d.level||1);
-          while(points>=100){ points-=100; level++; }
-          const newBadge = (level>=50?'Diamond':level>=40?'Platinum':level>=30?'Gold':level>=20?'Silver':level>=10?'Bronze':'Beginner');
-
-          const completed=[...(d.completedQuests||[]), id];
-          await updateDoc(uref,{ points, level, badge:newBadge, completedQuests:completed, weeklyQuest:null });
-
-          alert('Submitted! Admin can review your proof.');
-          render();
-        });
-      });
-
-    }catch(err){
-      console.error(err);
-      const msg = (err && err.code === 'permission-denied')
-        ? 'Permission denied. Check your Firestore rules for reading the "quests" collection.'
-        : 'Could not load quests. Please try again.';
-      list.innerHTML = `<div class="card"><div style="font-weight:700;margin-bottom:6px">Error</div><div class="muted">${msg}</div></div>`;
-    }
-  }
-
-  render();
-</script><script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import {
-    getFirestore, collection, getDocs, doc, getDoc, updateDoc, setDoc, addDoc
+    getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, addDoc
   } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-  import {
-    getStorage, ref as sRef, uploadBytes, getDownloadURL
-  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
+  import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
 
-  // Session guard
-  const email = (localStorage.getItem('current_user') || '').toLowerCase();
+  // ---- session guard ----
+  const email = (localStorage.getItem('current_user')||'').toLowerCase();
   if (!email) location.href = 'login.html';
   if (email === 'adminaccess1111') location.href = 'admin.html';
 
-  // ✅ Correct Firebase config (notice the storageBucket)
+  // ---- firebase (bucket fixed) ----
   const cfg = {
     apiKey: "AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
     authDomain: "levelupcrew-ec008.firebaseapp.com",
     projectId: "levelupcrew-ec008",
-    storageBucket: "levelupcrew-ec008.appspot.com",  // <-- fixed
+    storageBucket: "levelupcrew-ec008.appspot.com",
     messagingSenderId: "112573541497",
     appId: "1:112573541497:web:9395e25f7eb141405838a8"
   };
@@ -257,153 +91,171 @@
   const db  = getFirestore(app);
   const st  = getStorage(app);
 
-  // 🔧 Use the real list container on the page
-  const listEl  = document.getElementById('questList');   // <-- fixed
-  const noneMsg = document.getElementById('noneMsg');
+  // ---- ensure containers exist (keeps your layout) ----
+  let listEl  = document.getElementById('questList');
+  let noneMsg = document.getElementById('noneMsg');
+  if (!listEl) {
+    listEl = document.createElement('div');
+    listEl.id = 'questList';
+    listEl.className = 'grid';
+    // append under the "Available Quests" card if present, else at end of page
+    const cards = [...document.querySelectorAll('.card, .wrap, main, body')];
+    (cards[0] || document.body).appendChild(listEl);
+  }
+  if (!noneMsg) {
+    noneMsg = document.createElement('div');
+    noneMsg.id = 'noneMsg';
+    noneMsg.className = 'empty';
+    noneMsg.style.display = 'none';
+    noneMsg.textContent = 'No available quests.';
+    listEl.after(noneMsg);
+  }
+  // small inline debug (hidden unless problem)
+  const dbg = document.createElement('div');
+  dbg.id = 'debug';
+  dbg.style.cssText = 'margin-top:8px;color:#64748b;font-size:.9rem;display:none';
+  noneMsg.after(dbg);
+  const debug = m => { dbg.style.display='block'; dbg.textContent = m; console.log('[quests]', m); };
 
-  async function ensureUser() {
-    const ref = doc(db, 'users', email);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      await setDoc(ref, {
-        email, level: 1, points: 0, badge: 'Beginner',
-        completedQuests: [], createdAt: Date.now()
-      }, { merge: true });
-      return (await getDoc(ref)).data();
+  async function ensureUser(){
+    const uref = doc(db,'users',email);
+    const s = await getDoc(uref);
+    if (!s.exists()) {
+      await setDoc(uref, { email, level:1, points:0, badge:'Beginner', completedQuests:[], createdAt: Date.now() }, { merge:true });
+      return { level:1, points:0, completedQuests:[] };
     }
-    return snap.data();
+    return s.data();
   }
 
-  function card(q, selectedId, completed) {
-    const isDone = completed.includes(q.id);
-    const isCurrent = selectedId === q.id;
-    return `
-      <div class="card ${isCurrent?'current':''}">
-        <div class="quest">
-          <div>
-            <div class="q-title">${q.title || '(no title)'}</div>
-            <div class="q-points">+${q.points ?? 0} points</div>
-          </div>
-          <button class="btn ${isDone?'disabled':''}"
-                  data-id="${q.id}" data-title="${q.title||''}" data-p="${q.points||0}"
-                  ${isDone?'disabled':''}>
-            ${isDone ? 'Completed' : 'Start'}
-          </button>
+  const tpl = (q, selectedId, done) => `
+    <div class="card ${selectedId===q.id?'current':''}">
+      <div class="quest">
+        <div>
+          <div class="q-title">${q.title || '(no title)'}</div>
+          <div class="q-points">+${q.points ?? 0} points</div>
         </div>
-        <div class="finish" data-finish="${q.id}" style="display:${isCurrent?'block':'none'}">
-          <div class="muted" style="margin-bottom:8px">Upload proof (photo or video). One file is enough.</div>
-          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-            <img  class="preview" id="img-${q.id}" style="display:none" alt="">
-            <video class="preview" id="vid-${q.id}" style="display:none" controls></video>
-            <input type="file" accept="image/*,video/*" id="file-${q.id}">
-            <button class="btn" data-finishbtn="${q.id}">Finish</button>
-          </div>
+        <button class="btn ${done.includes(q.id)?'disabled':''}" data-id="${q.id}" data-title="${q.title||''}" data-p="${q.points||0}" ${done.includes(q.id)?'disabled':''}>
+          ${done.includes(q.id)?'Completed':'Start'}
+        </button>
+      </div>
+      <div class="finish" data-finish="${q.id}" style="display:${selectedId===q.id?'block':'none'}">
+        <div class="muted" style="margin-bottom:8px">Upload proof (photo or video). One file is enough.</div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <img  class="preview" id="img-${q.id}" style="display:none" alt="">
+          <video class="preview" id="vid-${q.id}" style="display:none" controls></video>
+          <input type="file" accept="image/*,video/*" id="file-${q.id}">
+          <button class="btn" data-finishbtn="${q.id}">Finish</button>
         </div>
-      </div>`;
-  }
+      </div>
+    </div>
+  `;
 
-  async function render() {
-    try {
+  async function render(){
+    try{
       const user = await ensureUser();
       const done = user.completedQuests || [];
       const selectedId = (user.weeklyQuest || {}).id || null;
 
-      const snap = await getDocs(collection(db, 'quests'));
-      const quests = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-                              .sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
+      // 🔁 no orderBy (some docs may miss createdAt)
+      const snap = await getDocs(collection(db,'quests'));
 
-      if (!quests.length) {
-        listEl.innerHTML = '';
-        noneMsg.style.display = 'block';
-        return;
-      }
-      noneMsg.style.display = 'none';
-      listEl.innerHTML = quests.map(q => card(q, selectedId, done)).join('');
+      const quests = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+      if (snap.empty) { noneMsg.style.display='block'; listEl.innerHTML=''; debug('Fetched 0 quests (empty snapshot).'); return; }
 
-      // Start -> mark as current
-      listEl.querySelectorAll('button[data-id]').forEach(btn => {
-        btn.addEventListener('click', async () => {
+      // hide quests already completed
+      const available = quests.filter(q => !done.includes(q.id));
+      if (!available.length) { noneMsg.style.display='block'; listEl.innerHTML=''; debug(`Fetched ${quests.length} quests, but all are completed.`); return; }
+
+      noneMsg.style.display='none';
+      listEl.innerHTML = available.map(q => tpl(q, selectedId, done)).join('');
+
+      // Start
+      listEl.querySelectorAll('button[data-id]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
           if (btn.classList.contains('disabled')) return;
-          const id = btn.dataset.id, points = Number(btn.dataset.p), title = btn.dataset.title;
-          await updateDoc(doc(db, 'users', email), { weeklyQuest: { id, title, points } });
+          const id=btn.dataset.id, title=btn.dataset.title, points=Number(btn.dataset.p||0);
+          await updateDoc(doc(db,'users',email), { weeklyQuest:{ id, title, points } });
           render();
         });
       });
 
-      // File preview
-      listEl.querySelectorAll('input[type=file]').forEach(inp => {
-        inp.addEventListener('change', e => {
-          const file = e.target.files[0]; if (!file) return;
-          const id = e.target.id.replace('file-','');
-          const isVideo = file.type.startsWith('video/');
-          const img = document.getElementById('img-'+id);
-          const vid = document.getElementById('vid-'+id);
-          if (isVideo) { img.style.display='none'; vid.style.display='block'; vid.src=URL.createObjectURL(file); }
-          else         { vid.style.display='none'; img.style.display='block'; img.src=URL.createObjectURL(file); }
+      // Preview
+      listEl.querySelectorAll('input[type=file]').forEach(inp=>{
+        inp.addEventListener('change', e=>{
+          const f=e.target.files[0]; if(!f) return;
+          const id=e.target.id.replace('file-','');
+          const isVid=f.type.startsWith('video/');
+          const img=document.getElementById('img-'+id), vid=document.getElementById('vid-'+id);
+          if(isVid){ img.style.display='none'; vid.style.display='block'; vid.src=URL.createObjectURL(f); }
+          else     { vid.style.display='none'; img.style.display='block'; img.src=URL.createObjectURL(f); }
         });
       });
 
-      // Finish -> upload + award points + hide card
-      listEl.querySelectorAll('button[data-finishbtn]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id   = btn.dataset.finishbtn;
+      // Finish
+      listEl.querySelectorAll('button[data-finishbtn]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const id = btn.dataset.finishbtn;
           const file = document.getElementById('file-'+id).files[0];
-          if (!file) { alert('Please upload a photo or video.'); return; }
+          if(!file){ alert('Please upload a photo or video.'); return; }
 
-          try {
-            const ts  = Date.now();
-            const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
-            const ref = sRef(st, `proofs/${encodeURIComponent(email)}/${id}/${ts}.${ext}`);
+          try{
+            // upload
+            const ts = Date.now();
+            const ref = sRef(st, `proofs/${encodeURIComponent(email)}/${id}/${ts}-${file.name}`);
             await uploadBytes(ref, file);
             const url = await getDownloadURL(ref);
 
-            const uref = doc(db,'users',email);
-            const us   = (await getDoc(uref)).data();
-            const w    = us.weeklyQuest;
-            if (!w || w.id !== id) { alert('Please press Start on this quest first.'); return; }
+            const usRef = doc(db,'users',email);
+            const us = (await getDoc(usRef)).data();
+            const w = us.weeklyQuest;
+            if(!w || w.id!==id){ alert('Please press Start on this quest first.'); return; }
 
             await addDoc(collection(db,'completions'), {
               user: email, questId: id, questTitle: w.title, points: Number(w.points||0),
-              mediaType: file.type.startsWith('video/') ? 'video' : 'image',
+              mediaType: file.type.startsWith('video/')?'video':'image',
               mediaUrl: url, createdAt: ts
             });
 
-            let points = Number(us.points||0) + Number(w.points||0);
-            let level  = Number(us.level||1);
-            while (points >= 100) { points -= 100; level++; }
-            const badge = level>=50?'Diamond':level>=40?'Platinum':level>=30?'Gold':level>=20?'Silver':level>=10?'Bronze':'Beginner';
+            // level math
+            let pts = Number(us.points||0) + Number(w.points||0);
+            let lvl = Number(us.level||1);
+            while(pts>=100){ pts-=100; lvl++; }
+            const badge = lvl>=50?'Diamond':lvl>=40?'Platinum':lvl>=30?'Gold':lvl>=20?'Silver':lvl>=10?'Bronze':'Beginner';
 
-            await updateDoc(uref, {
-              points, level, badge,
-              completedQuests: [ ...(us.completedQuests||[]), id ],
+            await updateDoc(usRef, {
+              points:pts, level:lvl, badge,
+              completedQuests:[...(us.completedQuests||[]), id],
               weeklyQuest: null
             });
 
-            // remove the completed card from the list
+            // remove from UI
             btn.closest('.card').remove();
-            if (!listEl.querySelector('.card')) noneMsg.style.display = 'block';
+            if(!listEl.querySelector('.card')) noneMsg.style.display='block';
             alert('Submitted! Admin can review your proof.');
-          } catch (e) {
+          }catch(e){
             console.error(e);
-            alert('Upload failed. Check your Storage rules and try again.');
+            alert('Upload or save failed. Check Storage Rules and bucket.');
           }
         });
       });
 
-    } catch (err) {
+      debug(`Fetched ${quests.length} quests, showing ${available.length}.`);
+    }catch(err){
       console.error(err);
-      listEl.innerHTML = '';
-      noneMsg.style.display = 'block';
-      noneMsg.textContent = (err?.code === 'permission-denied')
-        ? 'Permission denied. Check Firestore rules for reading the "quests" collection.'
-        : 'Could not load quests. Please refresh.';
+      listEl.innerHTML=''; noneMsg.style.display='block';
+      const msg = (err?.code==='permission-denied')
+        ? 'Permission denied. Set Firestore Rules to allow reads while testing.'
+        : 'Could not load quests. See console.';
+      debug(msg);
     }
   }
 
   render();
 </script>
+
 </body>
 </html>
+
 
 
 
