@@ -67,178 +67,173 @@
   </div>
 
   <script type="module">
-    // Session + logout
-    const email = localStorage.getItem('current_user');
-    if(!email){ location.href='login.html'; }
-    document.getElementById('who').textContent = email;
-    document.getElementById('logoutLink').addEventListener('click', (e)=>{
-      e.preventDefault(); localStorage.removeItem('current_user'); location.href='login.html';
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, setDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
+
+  // Session guard
+  const email=(localStorage.getItem('current_user')||'').toLowerCase();
+  if(!email) location.href='login.html';
+  if(email==='adminaccess1111'){ location.href='admin.html'; }
+
+  // Navbar: logout link was removed — guard in case any remains in HTML
+  const logoutLink = document.getElementById('logoutLink');
+  if (logoutLink) {
+    logoutLink.addEventListener('click', (e)=>{
+      e.preventDefault();
+      localStorage.removeItem('current_user');
+      location.href='login.html';
     });
+  }
 
-    // Firebase
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import {
-      getFirestore, collection, doc, getDoc, setDoc, onSnapshot, query, orderBy
-    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  const cfg={apiKey:"AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",authDomain:"levelupcrew-ec008.firebaseapp.com",projectId:"levelupcrew-ec008",storageBucket:"levelupcrew-ec008.firebasestorage.app",messagingSenderId:"112573541497",appId:"1:112573541497:web:9395e25f7eb141405838a8"};
+  const app=initializeApp(cfg); 
+  const db=getFirestore(app); 
+  const storage=getStorage(app);
 
-    // Your LevelUpCrew config
-    const firebaseConfig = {
-      apiKey: "AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
-      authDomain: "levelupcrew-ec008.firebaseapp.com",
-      projectId: "levelupcrew-ec008",
-      storageBucket: "levelupcrew-ec008.firebasestorage.app",
-      messagingSenderId: "112573541497",
-      appId: "1:112573541497:web:9395e25f7eb141405838a8"
-    };
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
+  const list=document.getElementById('list');
 
-    // Elements
-    const list = document.getElementById('questList');
-    const noneMsg = document.getElementById('noneMsg');
-    const finishWrap = document.getElementById('finishWrap');
-    const finishTitle = document.getElementById('finishTitle');
-    const proofInput = document.getElementById('proofInput');
-    const finishBtn = document.getElementById('finishBtn');
-    const preview = document.getElementById('preview');
+  function badgeName(level){ if(level>=50) return 'Diamond'; if(level>=40) return 'Platinum'; if(level>=30) return 'Gold'; if(level>=20) return 'Silver'; if(level>=10) return 'Bronze'; return 'Beginner'; }
 
-    const questsCol = collection(db, 'quests');
-    const userRef   = doc(db, 'users', email);
-
-    // Ensure user doc exists
-    async function ensureUser(){
-      const s = await getDoc(userRef);
-      if(!s.exists()){
-        await setDoc(userRef, { email, level:1, points:0, questId:null, quest:null, questPoints:0, completed:false, completedQuests:[] }, { merge:true });
-      }
+  async function ensureUser(){
+    const rf=doc(db,'users',email); 
+    const s=await getDoc(rf);
+    if(!s.exists()){
+      await setDoc(rf,{email,level:1,points:0,badge:'Beginner',completedQuests:[],createdAt:Date.now()});
+      return (await getDoc(rf)).data();
     }
-    await ensureUser();
+    return s.data();
+  }
 
-    // Local user state cache (from Firestore)
-    let state = (await getDoc(userRef)).data() || { level:1, points:0, completedQuests:[] };
-
-    function canSee(q){ return !Array.isArray(state.completedQuests) || !state.completedQuests.includes(q.id); }
-
-    function render(quests){
-      // Filter out quests the user already completed
-      const visible = quests.filter(canSee);
-
-      list.innerHTML = '';
-      if(visible.length === 0){
-        noneMsg.style.display = 'block';
-        finishWrap.style.display = (state.questId && !state.completed) ? 'block' : 'none';
-        return;
-      }
-      noneMsg.style.display = 'none';
-
-      visible.forEach(q=>{
-        const div = document.createElement('div');
-        const isSel = state.questId === q.id && !state.completed;
-        div.className = 'quest';
-        div.innerHTML = `
+  function questCard(q, currentId, completed){
+    const isDone=completed.includes(q.id);
+    const isCurrent=currentId===q.id;
+    return `
+      <div class="card ${isCurrent?'current':''}">
+        <div class="quest">
           <div>
             <div class="q-title">${q.title}</div>
-            <div class="q-points">+ ${q.points} pts</div>
+            <div class="q-points">+${q.points} points</div>
           </div>
-          <button class="btn ${isSel?'disabled':''}" data-id="${q.id}" data-title="${q.title}" data-pts="${q.points}">
-            ${isSel ? 'Selected' : 'Start'}
+          <button class="btn ${isDone?'disabled':''}" data-id="${q.id}" data-title="${q.title}" data-p="${q.points}" ${isDone?'disabled':''}>
+            ${isDone?'Completed':'Start'}
           </button>
-        `;
-        list.appendChild(div);
+        </div>
+        <div class="finish" data-finish="${q.id}" style="display:${isCurrent?'block':'none'}">
+          <div class="muted" style="margin-bottom:8px">Upload proof (photo or video). One file is enough.</div>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <img class="preview" id="img-${q.id}" style="display:none" alt="">
+            <video class="preview" id="vid-${q.id}" style="display:none" controls></video>
+            <input type="file" accept="image/*,video/*" id="file-${q.id}">
+            <button class="btn" data-finishbtn="${q.id}">Finish</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  async function render(){
+    try{
+      const user = await ensureUser();
+      const done = user.completedQuests || [];
+      const weeklyId = (user.weeklyQuest || {}).id;
+
+      // Load quests
+      const snap = await getDocs(collection(db,'quests'));
+      const quests = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      if (!quests.length) {
+        list.innerHTML = `
+          <div class="card">
+            <div style="font-weight:700;margin-bottom:6px">No quests available</div>
+            <div class="muted">Ask your admin to add quests in the Admin panel.</div>
+          </div>`;
+        return;
+      }
+
+      // Sort by createdAt, then title
+      quests.sort((a,b)=> (a.createdAt||0)-(b.createdAt||0) || String(a.title).localeCompare(String(b.title)));
+
+      // Render list
+      list.innerHTML = quests.map(q=>questCard(q, weeklyId, done)).join('');
+
+      // Hook up Start buttons
+      list.querySelectorAll('button[data-id]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          if(btn.classList.contains('disabled')) return;
+          const id=btn.dataset.id, points=Number(btn.dataset.p), title=btn.dataset.title;
+          await updateDoc(doc(db,'users',email),{ weeklyQuest:{id,title,points} });
+          render();
+        });
       });
 
-      const sel = visible.find(x => x.id === state.questId);
-      if(sel && !state.completed){
-        finishTitle.textContent = `Finish: ${sel.title}`;
-        finishWrap.style.display = 'block';
-      } else {
-        finishWrap.style.display = 'none';
-        preview.style.display='none';
-        proofInput.value='';
-      }
+      // Preview
+      list.querySelectorAll('input[type=file]').forEach(inp=>{
+        inp.addEventListener('change', (e)=>{
+          const file=e.target.files[0]; if(!file) return;
+          const id=e.target.id.replace('file-','');
+          const isVideo=file.type.startsWith('video/');
+          const img=document.getElementById('img-'+id);
+          const vid=document.getElementById('vid-'+id);
+          if(isVideo){ img.style.display='none'; vid.style.display='block'; vid.src=URL.createObjectURL(file); }
+          else { vid.style.display='none'; img.style.display='block'; img.src=URL.createObjectURL(file); }
+        });
+      });
+
+      // Finish
+      list.querySelectorAll('button[data-finishbtn]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const id=btn.dataset.finishbtn;
+          const file=document.getElementById('file-'+id).files[0];
+          if(!file){ alert('Please upload a photo or video.'); return; }
+
+          // Upload to Storage
+          const ts=Date.now();
+          const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+          const sref=ref(storage,`proofs/${encodeURIComponent(email)}/${id}/${ts}.${ext}`);
+          await uploadBytes(sref,file);
+          const url=await getDownloadURL(sref);
+          const mediaType=file.type.startsWith('video/')?'video':'image';
+
+          // Re-read user (get current weekly quest & points)
+          const uref=doc(db,'users',email);
+          const snap=await getDoc(uref); 
+          const d=snap.data();
+          const w=d.weeklyQuest;
+          if(!w || w.id!==id){ alert('Please select this quest first.'); return; }
+
+          // Record completion (for analytics)
+          await addDoc(collection(db,'completions'),{
+            user: email, questId: id, questTitle: w.title, points: Number(w.points||0),
+            mediaType, mediaUrl: url, createdAt: ts
+          });
+
+          // Update user points/level
+          let points=Number(d.points||0)+Number(w.points||0);
+          let level=Number(d.level||1);
+          while(points>=100){ points-=100; level++; }
+          const newBadge = (level>=50?'Diamond':level>=40?'Platinum':level>=30?'Gold':level>=20?'Silver':level>=10?'Bronze':'Beginner');
+
+          const completed=[...(d.completedQuests||[]), id];
+          await updateDoc(uref,{ points, level, badge:newBadge, completedQuests:completed, weeklyQuest:null });
+
+          alert('Submitted! Admin can review your proof.');
+          render();
+        });
+      });
+
+    }catch(err){
+      console.error(err);
+      const msg = (err && err.code === 'permission-denied')
+        ? 'Permission denied. Check your Firestore rules for reading the "quests" collection.'
+        : 'Could not load quests. Please try again.';
+      list.innerHTML = `<div class="card"><div style="font-weight:700;margin-bottom:6px">Error</div><div class="muted">${msg}</div></div>`;
     }
+  }
 
-    // Subscribe to quests (live)
-    onSnapshot(query(questsCol, orderBy('createdAt','desc')), (snap)=>{
-      const quests = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-      render(quests);
-    });
-
-    // Subscribe to THIS user (keep state fresh if completed elsewhere)
-    onSnapshot(userRef, (snap)=>{
-      if(snap.exists()){
-        state = snap.data() || state;
-      }
-    });
-
-    // Select quest
-    list.addEventListener('click', async (e)=>{
-      const btn = e.target.closest('button'); if(!btn) return;
-      if(btn.classList.contains('disabled')) return; // already selected
-      const id = btn.dataset.id, title = btn.dataset.title, pts = Number(btn.dataset.pts||0);
-
-      state.questId = id; state.quest = title; state.questPoints = pts; state.completed = false; state.proof=null;
-      await setDoc(userRef, { questId:id, quest:title, questPoints:pts, completed:false, proof:null }, { merge:true });
-
-      finishTitle.textContent = `Finish: ${title}`;
-      finishWrap.style.display='block';
-      // Re-render list buttons to reflect “Selected”
-      // (They’ll update on next onSnapshot too)
-      btn.textContent = 'Selected'; btn.classList.add('disabled');
-    });
-
-    // Proof preview
-    proofInput.addEventListener('change', ()=>{
-      const file = proofInput.files && proofInput.files[0];
-      if(!file){ preview.style.display='none'; return; }
-      const reader = new FileReader();
-      reader.onload = ()=>{ preview.src = reader.result; preview.style.display='block'; };
-      reader.readAsDataURL(file);
-    });
-
-    // Finish quest → award points, level up (every 100), mark completed, clear active quest
-    finishBtn.addEventListener('click', async ()=>{
-      const file = proofInput.files && proofInput.files[0];
-      if(!file){ alert('Please upload one event photo as proof.'); return; }
-
-      const reader = new FileReader();
-      reader.onload = async ()=>{
-        // Refresh state from Firestore to avoid conflicts
-        const snap = await getDoc(userRef);
-        state = snap.exists() ? snap.data() : state;
-
-        if(!state.questId){ alert('No active quest selected.'); return; }
-
-        const ptsEarned = Number(state.questPoints||0);
-        let newPts = Number(state.points||0) + ptsEarned;
-        let lvl = Number(state.level||1);
-
-        while(newPts >= 100){ newPts -= 100; lvl += 1; }
-
-        const completed = Array.isArray(state.completedQuests) ? state.completedQuests.slice() : [];
-        if(!completed.includes(state.questId)) completed.push(state.questId);
-
-        await setDoc(userRef, {
-          proof: reader.result,         // base64 image (simple demo)
-          points: newPts,
-          level: lvl,
-          completedQuests: completed,
-          // clear active quest
-          questId: null, quest: null, questPoints: 0, completed: true
-        }, { merge:true });
-
-        alert(`Finished! +${ptsEarned} pts awarded.`);
-        proofInput.value=''; preview.style.display='none';
-        // Local state update (optional; onSnapshot will also refresh)
-        state.points = newPts; state.level = lvl; state.completedQuests = completed;
-        state.questId = null; state.quest = null; state.questPoints = 0; state.completed = true;
-        finishWrap.style.display='none';
-      };
-      reader.readAsDataURL(file);
-    });
-  </script>
+  render();
+</script>
 </body>
 </html>
+
 
 
 
