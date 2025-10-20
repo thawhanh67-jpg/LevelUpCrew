@@ -1,322 +1,160 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>LevelUpCrew — Admin</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
   <style>
-    :root{--bg:#f6f7fb;--surface:#fff;--stroke:#e6e8ef;--text:#0f172a;--muted:#6b7280;--primary:#3b82f6;--danger:#ef4444;--shadow:0 10px 24px rgba(15,23,42,.06)}
-    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
-    header{max-width:1100px;margin:16px auto;background:var(--surface);border:1px solid var(--stroke);box-shadow:var(--shadow);padding:12px 16px;border-radius:12px;display:flex;justify-content:space-between;align-items:center}
-    .brand{font-weight:700;font-size:1.25rem;color:var(--primary)} .logout{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
-    .wrap{max-width:1100px;margin:12px auto;display:grid;gap:16px}
-    .card{background:var(--surface);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);padding:16px}
-    label{display:block;margin:10px 0 6px;font-weight:700}
-    input,textarea{width:100%;padding:12px;border:1px solid var(--stroke);border-radius:10px}
-    .row{display:flex;gap:12px;flex-wrap:wrap}
-    .btn{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer}
-    .btn.secondary{background:#0ea5e9}
-    .del{background:var(--danger);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer}
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th,td{padding:10px;border-bottom:1px solid var(--stroke);vertical-align:middle}
-    th{color:var(--primary);text-align:left}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
-    .media{border:1px solid var(--stroke);border-radius:12px;padding:10px;background:#fff}
-    .muted{color:#6b7280}
-    .chip{display:inline-block;background:#eef2ff;color:#1e293b;border:1px solid var(--stroke);padding:4px 8px;border-radius:999px;font-weight:600}
-    canvas{max-width:100%;height:260px}
-    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+    :root{--bg:#f6f7fb;--surface:#fff;--stroke:#e6e8ef;--text:#0f172a;--muted:#64748b;--primary:#3b82f6;--shadow:0 10px 24px rgba(15,23,42,.06)}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
+    header{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--stroke);box-shadow:var(--shadow);padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
+    .brand{font-weight:800}
+    .wrap{max-width:960px;margin:18px auto;padding:0 12px}
+    .card{background:var(--surface);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    input{padding:10px 12px;border:1px solid var(--stroke);border-radius:10px}
+    .btn{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:12px;border-bottom:1px solid var(--stroke);vertical-align:middle}
+    .muted{color:var(--muted)}
+    .del{background:#ef4444}
+    .note{border:1px solid #dbeafe;background:#eff6ff;padding:10px;border-radius:10px}
+    .alert{border:1px solid #fecaca;background:#fee2e2;padding:10px;border-radius:10px;color:#7f1d1d}
   </style>
 </head>
 <body>
-  <script>
-    // very simple gate (same as before)
-    const me=localStorage.getItem('current_user');
-    if(me!=='adminaccess1111'){ location.replace('login.html'); }
-  </script>
-
   <header>
-    <div class="brand">Admin Panel</div>
-    <button id="logout" class="logout">Logout</button>
+    <div class="brand">LevelUpCrew — Admin</div>
+    <button id="logout" class="btn" title="Log out">Logout</button>
   </header>
 
   <div class="wrap">
-    <!-- Quests management -->
+    <div id="guardMsg" class="card alert" style="display:none"></div>
+
     <div class="card">
-      <h3 style="margin:0 0 8px 0">Create Quest</h3>
+      <div style="font-weight:800;margin-bottom:10px">Add Quest</div>
       <div class="row">
-        <div style="flex:1">
-          <label>Title</label>
-          <input id="qTitle" placeholder="Quest title">
-        </div>
-        <div style="width:160px">
-          <label>Points</label>
-          <input id="qPoints" type="number" min="1" value="10">
-        </div>
+        <input id="qTitle" placeholder="Quest title" style="flex:1;min-width:240px">
+        <input id="qPoints" type="number" min="1" step="1" value="10" style="width:120px">
+        <button id="addQuest" class="btn">Add</button>
       </div>
-      <div style="margin-top:10px"><button class="btn" id="addQuest">Add Quest</button></div>
-      <h4>Current Quests</h4>
+      <div class="muted" style="margin-top:8px">New quests appear for all students immediately.</div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:10px">All Quests</div>
+      <div id="status" class="note" style="display:none"></div>
       <table>
-        <thead><tr><th>Title</th><th>Points</th><th>Actions</th></tr></thead>
-        <tbody id="questBody"></tbody>
-      </table>
-    </div>
-
-    <!-- Analytics: Participants per Quest -->
-    <div class="card">
-      <h3 style="margin:0 0 8px 0">Participants per Quest</h3>
-      <div class="toolbar">
-        <button class="btn secondary" id="exportQuestCSV">Export CSV</button>
-      </div>
-      <canvas id="perQuestChart"></canvas>
-      <div class="muted" style="margin-top:6px">Counts based on records in <code>completions</code>.</div>
-    </div>
-
-    <!-- Analytics: New Members Weekly -->
-    <div class="card">
-      <h3 style="margin:0 0 8px 0">New Members Weekly</h3>
-      <div class="toolbar">
-        <button class="btn secondary" id="exportMembersCSV">Export CSV</button>
-      </div>
-      <canvas id="newUsersChart"></canvas>
-      <div class="muted" style="margin-top:6px">Computed from <code>users.createdAt</code>.</div>
-    </div>
-
-    <!-- Proofs review -->
-    <div class="card">
-      <h3 style="margin:0 0 8px 0">Students' Proofs (latest)</h3>
-      <div class="toolbar">
-        <button class="btn secondary" id="exportCompletionsCSV">Export ALL Completions (CSV)</button>
-      </div>
-      <div id="proofGrid" class="grid"></div>
-      <div class="muted" style="margin-top:8px">Click a thumbnail to open/download.</div>
-    </div>
-
-    <!-- Posts (announcements / knowledge sharing) -->
-    <div class="card">
-      <h3 style="margin:0 0 8px 0">Create Post (photo/video + text)</h3>
-      <div class="row">
-        <div style="flex:1"><label>Title</label><input id="pTitle" placeholder="Post title"></div>
-        <div style="flex:2"><label>Description</label><textarea id="pBody" rows="2" placeholder="Info about upcoming quest, tips, etc."></textarea></div>
-        <div style="flex:1"><label>Media (photo/video)</label><input type="file" id="pFile" accept="image/*,video/*"></div>
-      </div>
-      <div style="margin-top:10px"><button class="btn" id="addPost">Publish Post</button></div>
-      <h4 style="margin-top:16px">Recent Posts</h4>
-      <div id="postGrid" class="grid"></div>
-    </div>
-
-    <!-- Users -->
-    <div class="card">
-      <h3 style="margin:0 0 8px 0">Users</h3>
-      <table>
-        <thead><tr><th>Email</th><th>Level</th><th>Points</th><th>Actions</th></tr></thead>
-        <tbody id="userBody"></tbody>
+        <thead>
+          <tr><th>Title</th><th style="width:120px">Points</th><th style="width:140px">Actions</th></tr>
+        </thead>
+        <tbody id="questBody">
+          <tr><td colspan="3" class="muted">Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 
   <script type="module">
+    // --- Admin gate: ONLY allow if localStorage says adminaccess1111
+    const who = localStorage.getItem('current_user') || '';
+    const guardBox = document.getElementById('guardMsg');
+    if (who !== 'adminaccess1111') {
+      guardBox.style.display = 'block';
+      guardBox.textContent = 'Access denied. Please log in as admin.';
+      // Prevent any further script from running on this page:
+      document.getElementById('status').style.display='none';
+      document.getElementById('questBody').innerHTML = '';
+      // Optionally redirect after a tick:
+      setTimeout(()=> location.href='login.html', 600);
+      throw new Error('Not admin');
+    }
+
+    // --- Logout for admin
+    document.getElementById('logout').addEventListener('click', ()=>{
+      localStorage.removeItem('current_user');
+      location.href='login.html';
+    });
+
+    // --- Firebase (vanilla, self-contained)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, getDocs, updateDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
+    import {
+      getFirestore, collection, addDoc, getDocs, deleteDoc, doc,
+      query, orderBy
+    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-    // Firebase
-    const cfg={apiKey:"AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",authDomain:"levelupcrew-ec008.firebaseapp.com",projectId:"levelupcrew-ec008",storageBucket:"levelupcrew-ec008.firebasestorage.app",messagingSenderId:"112573541497",appId:"1:112573541497:web:9395e25f7eb141405838a8"};
-    const app=initializeApp(cfg); const db=getFirestore(app); const storage=getStorage(app);
-
-    document.getElementById('logout').onclick=()=>{ localStorage.removeItem('current_user'); location.href='login.html'; };
-
-    /* ---------- Helpers for CSV ---------- */
-    function toCSV(rows){ // rows: array of objects
-      if(!rows.length) return '';
-      const headers = Object.keys(rows[0]);
-      const escape = (v)=> `"${String(v??'').replace(/"/g,'""')}"`;
-      const lines = [headers.join(',')].concat(rows.map(r=>headers.map(h=>escape(r[h])).join(',')));
-      return lines.join('\r\n');
-    }
-    function downloadCSV(filename, rows){
-      const csv = toCSV(rows);
-      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-      const url  = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    }
-    const weekLabel=(ms)=>{ const d=new Date(ms); const y=d.getFullYear(); const onejan=new Date(y,0,1); const week=Math.ceil((((d - onejan)/86400000)+onejan.getDay()+1)/7); return `${y}-W${String(week).padStart(2,'0')}`; };
-
-    // Stores for exporting
-    const ReportCache = {
-      perQuestArray: [],   // [{questTitle, participants}]
-      membersArray: [],    // [{week, newMembers}]
-      completionsArray: [] // full rows
+    const cfg = {
+      apiKey:"AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
+      authDomain:"levelupcrew-ec008.firebaseapp.com",
+      projectId:"levelupcrew-ec008",
+      storageBucket:"levelupcrew-ec008.firebasestorage.app",
+      messagingSenderId:"112573541497",
+      appId:"1:112573541497:web:9395e25f7eb141405838a8"
     };
+    const app = initializeApp(cfg);
+    const db  = getFirestore(app);
 
-    /* ---------- Quests management ---------- */
-    const qTitle=document.getElementById('qTitle'); const qPoints=document.getElementById('qPoints'); const qBody=document.getElementById('questBody');
-    document.getElementById('addQuest').onclick=async()=>{
-      const t=qTitle.value.trim(); const p=Number(qPoints.value||0);
-      if(!t||p<=0){ alert('Enter title and points'); return; }
-      await addDoc(collection(db,'quests'),{title:t,points:p,createdAt:Date.now(),seed:false});
-      qTitle.value=''; qPoints.value=10;
-    };
-    onSnapshot(collection(db,'quests'),(snap)=>{
-      qBody.innerHTML=snap.docs.map(d=>`<tr><td>${d.data().title}</td><td>${d.data().points}</td><td><button class="del" data-id="${d.id}">Remove</button></td></tr>`).join('');
-    });
-    qBody.addEventListener('click',async(e)=>{ const id=e.target.dataset.id; if(!id) return; await deleteDoc(doc(db,'quests',id)); });
+    const qTitle  = document.getElementById('qTitle');
+    const qPoints = document.getElementById('qPoints');
+    const addBtn  = document.getElementById('addQuest');
+    const qBody   = document.getElementById('questBody');
+    const status  = document.getElementById('status');
 
-    /* ---------- Posts (announcements) ---------- */
-    const pTitle=document.getElementById('pTitle'); const pBody=document.getElementById('pBody'); const pFile=document.getElementById('pFile'); const postGrid=document.getElementById('postGrid');
-    document.getElementById('addPost').onclick=async()=>{
-      const title=pTitle.value.trim(); const body=pBody.value.trim(); const file=pFile.files[0]||null;
-      if(!title) return alert('Add a title');
-      let mediaUrl='', mediaType='';
-      if(file){
-        mediaType = file.type.startsWith('video/') ? 'video' : 'image';
-        const ext=(file.name.split('.').pop()||'bin').toLowerCase();
-        const sref=ref(storage,`posts/${Date.now()}.${ext}`);
-        await uploadBytes(sref,file); mediaUrl=await getDownloadURL(sref);
+    function setStatus(html){ status.style.display='block'; status.innerHTML = html; }
+    function clearStatus(){ status.style.display='none'; status.innerHTML=''; }
+
+    async function loadQuests(){
+      qBody.innerHTML = `<tr><td colspan="3" class="muted">Loading…</td></tr>`;
+      clearStatus();
+      try{
+        const snap = await getDocs(query(collection(db,'quests'), orderBy('createdAt','desc')));
+        const rows = snap.docs.map(d=>{
+          const q = d.data();
+          return `<tr>
+            <td>${q.title || '(no title)'}</td>
+            <td>${q.points ?? 0}</td>
+            <td><button class="btn del" data-id="${d.id}">Remove</button></td>
+          </tr>`;
+        }).join('');
+        qBody.innerHTML = rows || `<tr><td colspan="3" class="muted">No quests yet.</td></tr>`;
+      }catch(err){
+        console.error('Load quests failed:', err);
+        setStatus('<div class="alert">Error loading quests. Check Firestore rules (writes must be allowed for admin).</div>');
+        qBody.innerHTML = `<tr><td colspan="3" class="muted">—</td></tr>`;
       }
-      await addDoc(collection(db,'announcements'),{title,body,mediaUrl,mediaType,createdAt:Date.now()});
-      pTitle.value=''; pBody.value=''; pFile.value='';
-    };
-    onSnapshot(query(collection(db,'announcements'), orderBy('createdAt','desc')), (snap)=>{
-      postGrid.innerHTML=snap.docs.map(d=>{
-        const x=d.data();
-        const media = x.mediaUrl ? (x.mediaType==='video'
-          ? `<video controls style="width:100%;border-radius:10px"><source src="${x.mediaUrl}"></video>`
-          : `<img src="${x.mediaUrl}" style="width:100%;border-radius:10px">`) : '';
-        return `<div class="media">
-          <div class="chip">Post</div>
-          <h4 style="margin:8px 0 6px 0">${x.title}</h4>
-          <div class="muted" style="white-space:pre-wrap">${x.body||''}</div>
-          <div style="margin-top:8px">${media}</div>
-        </div>`;
-      }).join('');
-    });
-
-    /* ---------- Proofs (latest) ---------- */
-    const proofGrid=document.getElementById('proofGrid');
-    onSnapshot(query(collection(db,'completions'), orderBy('createdAt','desc'), limit(24)), (snap)=>{
-      proofGrid.innerHTML=snap.docs.map(d=>{
-        const c=d.data();
-        const media = c.mediaType==='video'
-          ? `<video controls style="width:100%;border-radius:10px"><source src="${c.mediaUrl}"></video>`
-          : `<img src="${c.mediaUrl}" style="width:100%;border-radius:10px">`;
-        return `<div class="media">
-          <div class="chip">${c.questTitle||c.questId}</div>
-          <div class="muted" style="margin:6px 0">By ${c.user} • +${c.points} pts</div>
-          <a href="${c.mediaUrl}" target="_blank">${media}</a>
-        </div>`;
-      }).join('');
-    });
-
-    /* ---------- Users table ---------- */
-    const uBody=document.getElementById('userBody');
-    onSnapshot(collection(db,'users'),(snap)=>{
-      uBody.innerHTML=snap.docs.map(d=>{
-        const u=d.data(); const id=d.id; if(id==='adminaccess1111') return '';
-        return `<tr>
-          <td>${id}</td><td>${u.level||1}</td><td>${u.points||0}</td>
-          <td>
-            <button class="del" data-reset="${id}">Reset Data</button>
-            <button class="btn" data-pass="${id}">Reset Password</button>
-          </td>
-        </tr>`;
-      }).join('');
-    });
-    uBody.addEventListener('click',async(e)=>{
-      const rid=e.target.dataset.reset; const pid=e.target.dataset.pass;
-      if(rid){ if(!confirm('Reset this account?')) return;
-        await updateDoc(doc(db,'users',rid),{level:1,points:0,badge:'Beginner',completedQuests:[],weeklyQuest:null});
-      }
-      if(pid){ const np=prompt('New passbook number for '+pid+':'); if(!np) return; await updateDoc(doc(db,'users',pid),{password:np}); }
-    });
-
-    /* ---------- Analytics build + CSV data ---------- */
-    async function buildAnalytics(){
-      const [questsSnap, usersSnap, compsSnap] = await Promise.all([
-        getDocs(collection(db,'quests')),
-        getDocs(collection(db,'users')),
-        getDocs(collection(db,'completions'))
-      ]);
-
-      // Participants per quest
-      const questCounts = {}; // title -> count
-      compsSnap.forEach(d=>{
-        const c=d.data();
-        const title=c.questTitle || c.questId || 'Unknown';
-        questCounts[title]=(questCounts[title]||0)+1;
-      });
-      const qLabels=Object.keys(questCounts);
-      const qVals=qLabels.map(k=>questCounts[k]);
-
-      // CSV data for per-quest
-      ReportCache.perQuestArray = qLabels.map((title,i)=>({ questTitle:title, participants:qVals[i] }));
-
-      // Draw chart
-      new Chart(document.getElementById('perQuestChart'),{
-        type:'bar',
-        data:{ labels:qLabels, datasets:[{ label:'Participants', data:qVals, backgroundColor:'#3b82f6' }]},
-        options:{ responsive:true, plugins:{ legend:{ display:false }}, scales:{ x:{ ticks:{ autoSkip:false }}}}
-      });
-
-      // New members weekly
-      const weekCounts={};
-      usersSnap.forEach(d=>{
-        const u=d.data(); const t=u.createdAt;
-        if(t){ const w=weekLabel(t); weekCounts[w]=(weekCounts[w]||0)+1; }
-      });
-      const wLabels=Object.keys(weekCounts).sort();
-      const wVals=wLabels.map(k=>weekCounts[k]);
-
-      // CSV data for weekly members
-      ReportCache.membersArray = wLabels.map((week,i)=>({ week, newMembers:wVals[i] }));
-
-      // Draw chart
-      new Chart(document.getElementById('newUsersChart'),{
-        type:'line',
-        data:{ labels:wLabels, datasets:[{ label:'New Members', data:wVals, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.3)', fill:true, tension:.35 }]},
-        options:{ responsive:true, plugins:{ legend:{ display:false }}}
-      });
-
-      // Completions raw (for CSV)
-      ReportCache.completionsArray = compsSnap.docs.map(d=>{
-        const c=d.data();
-        return {
-          createdAtISO: new Date(c.createdAt||0).toISOString(),
-          week: c.createdAt ? weekLabel(c.createdAt) : '',
-          user: c.user || '',
-          questId: c.questId || '',
-          questTitle: c.questTitle || '',
-          points: c.points || 0,
-          mediaType: c.mediaType || '',
-          mediaUrl: c.mediaUrl || ''
-        };
-      });
-
-      // Also render the quest table (optional summary)
-      // (title, points, participants)
-      const qMeta = {};
-      questsSnap.forEach(d=>{
-        const q=d.data();
-        qMeta[q.title]=q.points;
-      });
-      const qTable=document.createElement('tbody');
-      qTable.innerHTML = qLabels.map(t=>`<tr><td>${t}</td><td>${qMeta[t]??'-'}</td><td>${questCounts[t]}</td></tr>`).join('');
-      document.querySelector('#questBody')?.replaceWith(qTable); // keep original table used above; this line is safe if it exists
-      qTable.id='questBody';
     }
 
-    // Export buttons
-    document.getElementById('exportQuestCSV').onclick=()=> downloadCSV(`participants_per_quest.csv`, ReportCache.perQuestArray);
-    document.getElementById('exportMembersCSV').onclick=()=> downloadCSV(`new_members_weekly.csv`, ReportCache.membersArray);
-    document.getElementById('exportCompletionsCSV').onclick=()=> downloadCSV(`completions_all.csv`, ReportCache.completionsArray);
+    addBtn.addEventListener('click', async ()=>{
+      const title = (qTitle.value||'').trim();
+      const points = Number(qPoints.value||0);
+      if(!title || points<=0){ alert('Enter title and a positive points value.'); return; }
+      try{
+        await addDoc(collection(db,'quests'), { title, points, createdAt: Date.now(), seed: false });
+        qTitle.value=''; qPoints.value=10;
+        await loadQuests();
+      }catch(err){
+        console.error('Add quest failed:', err);
+        setStatus('<div class="alert">Failed to add quest. Check Firestore rules.</div>');
+      }
+    });
 
-    buildAnalytics();
+    qBody.addEventListener('click', async (e)=>{
+      const id = e.target?.dataset?.id;
+      if(!id) return;
+      if(!confirm('Remove this quest?')) return;
+      try{
+        await deleteDoc(doc(db,'quests',id));
+        await loadQuests();
+      }catch(err){
+        console.error('Delete quest failed:', err);
+        setStatus('<div class="alert">Failed to delete. Check Firestore rules.</div>');
+      }
+    });
+
+    // Initial render
+    loadQuests();
   </script>
 </body>
 </html>
-
-
