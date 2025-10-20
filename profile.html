@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LevelUpCrew — Profile</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
+  <style>
+    :root{--bg:#f6f7fb;--surface:#fff;--stroke:#e6e8ef;--text:#0f172a;--muted:#64748b;--primary:#3b82f6;--shadow:0 10px 24px rgba(15,23,42,.06)}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
+    nav{position:sticky;top:0;z-index:5;width:100%;background:var(--surface);border-bottom:1px solid var(--stroke);box-shadow:var(--shadow);padding:14px 20px;display:flex;justify-content:center;gap:24px}
+    nav a{color:var(--text);text-decoration:none;font-weight:700} nav a.active,nav a:hover{color:var(--primary)}
+    .wrap{max-width:900px;margin:18px auto;padding:0 10px;display:grid;gap:16px}
+    .card{background:var(--surface);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);padding:16px}
+    .row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+    .muted{color:var(--muted)}
+    .badge{display:inline-flex;align-items:center;gap:8px;background:#f1f5f9;border:1px solid var(--stroke);padding:8px 10px;border-radius:999px;font-weight:700}
+    .badge-dot{width:10px;height:10px;border-radius:999px;background:var(--primary)}
+    .avatar{width:72px;height:72px;border-radius:14px;background:#e5edff;border:1px solid var(--stroke);display:flex;align-items:center;justify-content:center;font-weight:800;color:#1e3a8a}
+    label{display:block;margin:10px 0 6px;font-weight:700}
+    input,textarea{width:100%;padding:12px;border:1px solid var(--stroke);border-radius:10px}
+    .btn{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer}
+    .btn.ghost{background:#eef2ff;color:#1e293b}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media (max-width:720px){.grid2{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <!-- NAV (students only) -->
+  <nav>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="quests.html">Quests</a>
+    <a href="leaderboard.html">Leaderboard</a>
+    <a href="profile.html" class="active">Profile</a>
+    <a href="#" id="logoutLink">Logout</a>
+  </nav>
+
+  <div class="wrap">
+    <!-- Header / identity -->
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div class="row">
+          <div id="avatar" class="avatar">U</div>
+          <div>
+            <div style="font-size:1.2rem;font-weight:800" id="displayName">Student</div>
+            <div class="muted" id="emailText">you@rsu.ac.th</div>
+            <div class="muted" id="joinedText">Joined —</div>
+          </div>
+        </div>
+        <div class="badge"><span id="badgeDot" class="badge-dot"></span><span id="badgeName">Beginner</span></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid2">
+      <div class="card">
+        <div style="font-weight:800">Level</div>
+        <div style="font-size:2rem;font-weight:900;margin-top:4px" id="lvl">1</div>
+        <div class="muted"><span id="pts">0</span> / 100 points</div>
+      </div>
+      <div class="card">
+        <div style="font-weight:800">Completed Quests</div>
+        <div style="font-size:2rem;font-weight:900;margin-top:4px" id="completed">0</div>
+        <div class="muted">Total proofs submitted</div>
+      </div>
+    </div>
+
+    <!-- Edit profile -->
+    <div class="card">
+      <h3 style="margin:0 0 10px 0">Edit Profile</h3>
+      <div class="grid2">
+        <div>
+          <label for="nameInput">Display Name</label>
+          <input id="nameInput" placeholder="Your name (what others see)">
+          <div style="margin-top:10px"><button class="btn" id="saveNameBtn">Save Name</button></div>
+        </div>
+        <div>
+          <label for="passInput">Change Passbook Number</label>
+          <input id="passInput" placeholder="New passbook number">
+          <div style="margin-top:10px"><button class="btn" id="savePassBtn">Update Password</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danger / logout -->
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <div style="font-weight:800">Sign out</div>
+          <div class="muted">You can always sign in again with your RSU email and passbook number.</div>
+        </div>
+        <button class="btn ghost" id="logoutBtn">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Session guard: students only; admin has no profile page
+    const email=(localStorage.getItem('current_user')||'').toLowerCase();
+    if(!email) location.href='login.html';
+    if(email==='adminaccess1111'){ location.href='admin.html'; }
+
+    document.getElementById('logoutLink').onclick=(e)=>{e.preventDefault(); localStorage.removeItem('current_user'); location.href='login.html';};
+    document.getElementById('logoutBtn').onclick=()=>{ localStorage.removeItem('current_user'); location.href='login.html'; };
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, updateDoc, setDoc, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+    const cfg={apiKey:"AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",authDomain:"levelupcrew-ec008.firebaseapp.com",projectId:"levelupcrew-ec008",storageBucket:"levelupcrew-ec008.firebasestorage.app",messagingSenderId:"112573541497",appId:"1:112573541497:web:9395e25f7eb141405838a8"};
+    const app=initializeApp(cfg); const db=getFirestore(app);
+
+    const displayNameEl=document.getElementById('displayName');
+    const emailText=document.getElementById('emailText');
+    const joinedText=document.getElementById('joinedText');
+    const avatarEl=document.getElementById('avatar');
+    const badgeNameEl=document.getElementById('badgeName');
+    const badgeDotEl=document.getElementById('badgeDot');
+    const lvlEl=document.getElementById('lvl');
+    const ptsEl=document.getElementById('pts');
+    const completedEl=document.getElementById('completed');
+
+    const nameInput=document.getElementById('nameInput');
+    const passInput=document.getElementById('passInput');
+    const saveNameBtn=document.getElementById('saveNameBtn');
+    const savePassBtn=document.getElementById('savePassBtn');
+
+    function badge(level){
+      if(level>=50) return {n:'Diamond',c:'#6d28d9'};
+      if(level>=40) return {n:'Platinum',c:'#0ea5e9'};
+      if(level>=30) return {n:'Gold',c:'#f59e0b'};
+      if(level>=20) return {n:'Silver',c:'#94a3b8'};
+      if(level>=10) return {n:'Bronze',c:'#b45309'};
+      return {n:'Beginner',c:'#10b981'};
+    }
+    function initials(text){ const t=(text||'').trim(); if(!t) return 'U'; const parts=t.split(/\s+/); return (parts[0][0]||'').toUpperCase() + (parts[1]?.[0]||'').toUpperCase(); }
+
+    async function load(){
+      emailText.textContent=email;
+      const ref=doc(db,'users',email);
+      let snap=await getDoc(ref);
+      if(!snap.exists()){
+        await setDoc(ref,{email,level:1,points:0,badge:'Beginner',completedQuests:[],createdAt:Date.now()});
+        snap=await getDoc(ref);
+      }
+      const u=snap.data();
+      const level=Number(u.level||1), points=Number(u.points||0);
+      const b=badge(level);
+      badgeNameEl.textContent=b.n; badgeDotEl.style.background=b.c;
+      lvlEl.textContent=level; ptsEl.textContent=points%100;
+      displayNameEl.textContent = u.displayName || 'Student';
+      nameInput.value = u.displayName || '';
+      avatarEl.textContent = initials(u.displayName || email.split('@')[0]);
+      joinedText.textContent = u.createdAt ? ('Joined ' + new Date(u.createdAt).toLocaleDateString()) : 'Joined —';
+
+      // Count completions for this user
+      const qref = query(collection(db,'completions'), where('user','==',email));
+      const qsnap = await getDocs(qref);
+      completedEl.textContent = qsnap.size;
+    }
+
+    saveNameBtn.onclick=async()=>{
+      const name=nameInput.value.trim();
+      await updateDoc(doc(db,'users',email),{ displayName:name });
+      displayNameEl.textContent = name || 'Student';
+      avatarEl.textContent = initials(name || email.split('@')[0]);
+      alert('Name updated.');
+    };
+    savePassBtn.onclick=async()=>{
+      const p=passInput.value.trim(); if(!p){ alert('Enter a new passbook number'); return; }
+      await updateDoc(doc(db,'users',email),{ password:p });
+      passInput.value=''; alert('Passbook updated.');
+    };
+
+    load();
+  </script>
+</body>
+</html>
