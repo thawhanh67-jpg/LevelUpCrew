@@ -11,28 +11,37 @@
     body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
     header{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--stroke);box-shadow:var(--shadow);padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
     .brand{font-weight:800}
-    .wrap{max-width:960px;margin:18px auto;padding:0 12px}
+    .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
     .card{background:var(--surface);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
     input{padding:10px 12px;border:1px solid var(--stroke);border-radius:10px}
     .btn{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn.ghost{background:#eef2ff;color:#1e293b}
+    .del{background:#ef4444}
     table{width:100%;border-collapse:collapse}
     th,td{padding:12px;border-bottom:1px solid var(--stroke);vertical-align:middle}
+    th{font-weight:800;text-align:left}
     .muted{color:var(--muted)}
-    .del{background:#ef4444}
     .note{border:1px solid #dbeafe;background:#eff6ff;padding:10px;border-radius:10px}
     .alert{border:1px solid #fecaca;background:#fee2e2;padding:10px;border-radius:10px;color:#7f1d1d}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media (max-width:900px){.grid2{grid-template-columns:1fr}}
+    canvas{width:100%;height:320px}
   </style>
 </head>
 <body>
   <header>
     <div class="brand">LevelUpCrew — Admin</div>
-    <button id="logout" class="btn" title="Log out">Logout</button>
+    <div class="row">
+      <a class="btn ghost" href="dashboard.html">Open Student View</a>
+      <button id="logout" class="btn" title="Log out">Logout</button>
+    </div>
   </header>
 
   <div class="wrap">
     <div id="guardMsg" class="card alert" style="display:none"></div>
 
+    <!-- Add Quest -->
     <div class="card">
       <div style="font-weight:800;margin-bottom:10px">Add Quest</div>
       <div class="row">
@@ -43,9 +52,10 @@
       <div class="muted" style="margin-top:8px">New quests appear for all students immediately.</div>
     </div>
 
+    <!-- Quests list -->
     <div class="card">
       <div style="font-weight:800;margin-bottom:10px">All Quests</div>
-      <div id="status" class="note" style="display:none"></div>
+      <div id="qStatus" class="note" style="display:none"></div>
       <table>
         <thead>
           <tr><th>Title</th><th style="width:120px">Points</th><th style="width:140px">Actions</th></tr>
@@ -55,34 +65,59 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Analytics -->
+    <div class="grid2">
+      <div class="card">
+        <div style="font-weight:800;margin-bottom:10px">Participants per Quest</div>
+        <canvas id="questChart"></canvas>
+      </div>
+      <div class="card">
+        <div style="font-weight:800;margin-bottom:10px">New Members per Week</div>
+        <canvas id="memberChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Users -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:800">User Accounts</div>
+        <input id="searchUser" placeholder="Search email or name" style="min-width:240px">
+      </div>
+      <div id="uStatus" class="note" style="display:none"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th><th>Name</th><th>Level</th><th>Points</th><th>Joined</th><th style="width:230px">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="userBody"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
+      </table>
+    </div>
   </div>
 
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
   <script type="module">
-    // --- Admin gate: ONLY allow if localStorage says adminaccess1111
+    // --- Admin gate
     const who = localStorage.getItem('current_user') || '';
     const guardBox = document.getElementById('guardMsg');
     if (who !== 'adminaccess1111') {
       guardBox.style.display = 'block';
       guardBox.textContent = 'Access denied. Please log in as admin.';
-      // Prevent any further script from running on this page:
-      document.getElementById('status').style.display='none';
-      document.getElementById('questBody').innerHTML = '';
-      // Optionally redirect after a tick:
       setTimeout(()=> location.href='login.html', 600);
       throw new Error('Not admin');
     }
-
-    // --- Logout for admin
     document.getElementById('logout').addEventListener('click', ()=>{
-      localStorage.removeItem('current_user');
-      location.href='login.html';
+      localStorage.removeItem('current_user'); location.href='login.html';
     });
 
-    // --- Firebase (vanilla, self-contained)
+    // --- Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
     import {
-      getFirestore, collection, addDoc, getDocs, deleteDoc, doc,
-      query, orderBy
+      getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc,
+      query, orderBy, where
     } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
     const cfg = {
@@ -96,18 +131,18 @@
     const app = initializeApp(cfg);
     const db  = getFirestore(app);
 
+    // ---- Quests (list/add/delete)
     const qTitle  = document.getElementById('qTitle');
     const qPoints = document.getElementById('qPoints');
     const addBtn  = document.getElementById('addQuest');
     const qBody   = document.getElementById('questBody');
-    const status  = document.getElementById('status');
-
-    function setStatus(html){ status.style.display='block'; status.innerHTML = html; }
-    function clearStatus(){ status.style.display='none'; status.innerHTML=''; }
+    const qStatus = document.getElementById('qStatus');
+    function qSet(html){ qStatus.style.display='block'; qStatus.innerHTML=html; }
+    function qClear(){ qStatus.style.display='none'; qStatus.innerHTML=''; }
 
     async function loadQuests(){
       qBody.innerHTML = `<tr><td colspan="3" class="muted">Loading…</td></tr>`;
-      clearStatus();
+      qClear();
       try{
         const snap = await getDocs(query(collection(db,'quests'), orderBy('createdAt','desc')));
         const rows = snap.docs.map(d=>{
@@ -115,46 +150,179 @@
           return `<tr>
             <td>${q.title || '(no title)'}</td>
             <td>${q.points ?? 0}</td>
-            <td><button class="btn del" data-id="${d.id}">Remove</button></td>
+            <td>
+              <button class="btn del" data-id="${d.id}">Remove</button>
+            </td>
           </tr>`;
         }).join('');
         qBody.innerHTML = rows || `<tr><td colspan="3" class="muted">No quests yet.</td></tr>`;
       }catch(err){
         console.error('Load quests failed:', err);
-        setStatus('<div class="alert">Error loading quests. Check Firestore rules (writes must be allowed for admin).</div>');
+        qSet('<div class="alert">Error loading quests. Check Firestore rules (reads & writes must be allowed for admin while testing).</div>');
         qBody.innerHTML = `<tr><td colspan="3" class="muted">—</td></tr>`;
       }
     }
-
     addBtn.addEventListener('click', async ()=>{
-      const title = (qTitle.value||'').trim();
-      const points = Number(qPoints.value||0);
-      if(!title || points<=0){ alert('Enter title and a positive points value.'); return; }
+      const title=(qTitle.value||'').trim();
+      const points=Number(qPoints.value||0);
+      if(!title || points<=0){ alert('Enter title and positive points.'); return; }
       try{
-        await addDoc(collection(db,'quests'), { title, points, createdAt: Date.now(), seed: false });
-        qTitle.value=''; qPoints.value=10;
-        await loadQuests();
-      }catch(err){
-        console.error('Add quest failed:', err);
-        setStatus('<div class="alert">Failed to add quest. Check Firestore rules.</div>');
-      }
+        await addDoc(collection(db,'quests'), { title, points, createdAt: Date.now(), seed:false });
+        qTitle.value=''; qPoints.value=10; await loadQuests(); await loadQuestAnalytics();
+      }catch(err){ console.error(err); qSet('<div class="alert">Failed to add quest (rules?).</div>'); }
     });
-
     qBody.addEventListener('click', async (e)=>{
-      const id = e.target?.dataset?.id;
-      if(!id) return;
+      const id=e.target?.dataset?.id; if(!id) return;
       if(!confirm('Remove this quest?')) return;
       try{
         await deleteDoc(doc(db,'quests',id));
-        await loadQuests();
+        await loadQuests(); await loadQuestAnalytics();
+      }catch(err){ console.error(err); qSet('<div class="alert">Failed to delete (rules?).</div>'); }
+    });
+
+    // ---- Analytics
+    let questChart, memberChart;
+
+    // participants per quest from completions
+    async function loadQuestAnalytics(){
+      try{
+        const snap = await getDocs(collection(db,'completions'));
+        const byQuest = {};
+        snap.forEach(d=>{
+          const c=d.data();
+          const key = c.questTitle || c.questId || 'Unknown';
+          byQuest[key]=(byQuest[key]||0)+1;
+        });
+        const labels = Object.keys(byQuest);
+        const data = labels.map(k=>byQuest[k]);
+
+        const ctx = document.getElementById('questChart');
+        if(questChart) questChart.destroy();
+        questChart = new Chart(ctx, {
+          type:'bar',
+          data:{ labels, datasets:[{ label:'Participants', data }] },
+          options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, precision:0 } } }
+        });
+      }catch(err){ console.error('Quest analytics error', err); }
+    }
+
+    // new members per week from users.createdAt
+    function yyyymmddToYearWeek(ms){
+      const d = new Date(ms || Date.now());
+      // ISO week
+      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const dayNum = date.getUTCDay() || 7;
+      date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
+      const weekNo = Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+      return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2,'0')}`;
+    }
+    async function loadMemberAnalytics(){
+      try{
+        const snap = await getDocs(collection(db,'users'));
+        const byWeek = {};
+        snap.forEach(d=>{
+          const u=d.data();
+          const week = yyyymmddToYearWeek(u.createdAt || Date.now());
+          byWeek[week]=(byWeek[week]||0)+1;
+        });
+        const labels = Object.keys(byWeek).sort();
+        const data = labels.map(k=>byWeek[k]);
+
+        const ctx = document.getElementById('memberChart');
+        if(memberChart) memberChart.destroy();
+        memberChart = new Chart(ctx, {
+          type:'line',
+          data:{ labels, datasets:[{ label:'New members', data, tension:.25 }] },
+          options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, precision:0 } } }
+        });
+      }catch(err){ console.error('Member analytics error', err); }
+    }
+
+    // ---- Users table (reset/delete/search)
+    const uBody   = document.getElementById('userBody');
+    const uStatus = document.getElementById('uStatus');
+    const search  = document.getElementById('searchUser');
+    let allUsers = [];
+
+    function uSet(html){ uStatus.style.display='block'; uStatus.innerHTML=html; }
+    function uClear(){ uStatus.style.display='none'; uStatus.innerHTML=''; }
+
+    function renderUsers(filter=''){
+      const term = filter.trim().toLowerCase();
+      const list = allUsers.filter(u =>
+        !term || (u.email||'').toLowerCase().includes(term) || (u.displayName||'').toLowerCase().includes(term)
+      );
+      if(!list.length){ uBody.innerHTML = `<tr><td colspan="6" class="muted">No users found.</td></tr>`; return; }
+      uBody.innerHTML = list.map(u=>{
+        const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—';
+        return `<tr>
+          <td>${u.email||'—'}</td>
+          <td>${u.displayName||'—'}</td>
+          <td>${u.level ?? 0}</td>
+          <td>${u.points ?? 0}</td>
+          <td>${joined}</td>
+          <td>
+            <button class="btn" data-reset="${u.email}">Reset Passbook</button>
+            <button class="btn del" data-del="${u.email}">Delete</button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function loadUsers(){
+      uBody.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
+      uClear();
+      try{
+        const snap = await getDocs(query(collection(db,'users'), orderBy('createdAt','desc')));
+        allUsers = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+        renderUsers(search.value);
       }catch(err){
-        console.error('Delete quest failed:', err);
-        setStatus('<div class="alert">Failed to delete. Check Firestore rules.</div>');
+        console.error('Load users failed:', err);
+        uSet('<div class="alert">Error loading users. Check Firestore rules.</div>');
+        uBody.innerHTML = `<tr><td colspan="6" class="muted">—</td></tr>`;
+      }
+    }
+
+    search.addEventListener('input', ()=>renderUsers(search.value));
+
+    // actions: reset & delete
+    uBody.addEventListener('click', async (e)=>{
+      const email = e.target?.dataset?.reset || e.target?.dataset?.del;
+      if(!email) return;
+
+      if(e.target.dataset.reset){
+        const pass = prompt(`Enter new passbook number for:\n${email}`);
+        if(!pass) return;
+        try{
+          await updateDoc(doc(db,'users',email), { password: String(pass) });
+          alert('Passbook updated.');
+        }catch(err){ console.error(err); alert('Failed to update. Check rules.'); }
+        return;
+      }
+
+      if(e.target.dataset.del){
+        if(!confirm(`Delete this account and their completions?\n${email}`)) return;
+        try{
+          // delete completions for this user
+          const cs = await getDocs(query(collection(db,'completions'), where('user','==',email)));
+          const batchDeletes = cs.docs.map(d=> deleteDoc(doc(db,'completions', d.id)));
+          await Promise.all(batchDeletes);
+          // delete user doc
+          await deleteDoc(doc(db,'users',email));
+          // refresh
+          await loadUsers(); await loadMemberAnalytics();
+          alert('User deleted.');
+        }catch(err){ console.error(err); alert('Failed to delete. Check rules.'); }
       }
     });
 
-    // Initial render
-    loadQuests();
+    // ---- initial load
+    await loadQuests();
+    await loadQuestAnalytics();
+    await loadMemberAnalytics();
+    await loadUsers();
   </script>
 </body>
 </html>
+
