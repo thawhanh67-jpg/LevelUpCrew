@@ -1,210 +1,165 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>LevelUpCrew — Quests</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
   <style>
     :root{--bg:#f6f7fb;--surface:#fff;--stroke:#e6e8ef;--text:#0f172a;--muted:#64748b;--primary:#3b82f6;--shadow:0 10px 24px rgba(15,23,42,.06)}
-    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
-    nav{position:sticky;top:0;z-index:5;width:100%;background:var(--surface);border-bottom:1px solid var(--stroke);box-shadow:var(--shadow);padding:14px 20px;display:flex;justify-content:center;gap:24px}
-    nav a{color:var(--text);text-decoration:none;font-weight:700} nav a.active,nav a:hover{color:var(--primary)}
-    .wrap{max-width:900px;margin:18px auto;padding:0 10px}
-    .card{background:var(--surface);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
-    .quest{display:flex;justify-content:space-between;align-items:center;gap:12px}
-    .q-title{font-weight:700}.q-points{color:#0f4b8f;font-size:.92rem}
-    .btn{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer}
-    .btn.disabled{opacity:.6;cursor:not-allowed}
-    .finish{margin-top:12px;border:1px dashed var(--stroke);padding:10px;border-radius:12px;background:#f8fbff}
-    .current{border:2px solid #93c5fd}
-    .preview{width:140px;height:90px;border:1px solid var(--stroke);border-radius:10px;object-fit:cover}
-    video.preview{height:120px}
-    .muted{color:#64748b}
-    .alert{border:1px solid #fee2e2;background:#fff1f2;color:#7f1d1d;padding:12px;border-radius:12px}
-    .note{border:1px solid #e5e7eb;background:#f8fafc;color:#334155;padding:12px;border-radius:12px}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
+    header{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--stroke);box-shadow:var(--shadow);padding:14px 20px;display:flex;gap:16px}
+    a{color:#111;text-decoration:none}
+    nav a{padding:8px 12px;border-radius:10px}
+    nav a.active{background:#eef2ff;color:#1e293b}
+    .wrap{max-width:980px;margin:18px auto;padding:0 12px}
+    .card{background:var(--surface);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+    .muted{color:var(--muted)}
+    .btn{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+    input[type=file]{display:block;margin:8px 0}
   </style>
 </head>
 <body>
-  <!-- NAV: no logout here -->
-  <nav>
-    <a href="dashboard.html">Dashboard</a>
-    <a href="quests.html" class="active">Quests</a>
-    <a href="leaderboard.html">Leaderboard</a>
-    <a href="profile.html">Profile</a>
-  </nav>
+  <header>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="quests.html" class="active">Quests</a>
+      <a href="leaderboard.html">Leaderboard</a>
+      <a href="profile.html">Profile</a>
+    </nav>
+  </header>
 
-  <div class="wrap" id="wrap">
-    <div class="note card" id="status" style="display:none"></div>
-    <div id="list"></div>
+  <div class="wrap">
+    <h2>Available Quests</h2>
+    <div id="questList"></div>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, setDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
+    import {
+      getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc,
+      query, orderBy, where, addDoc
+    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+    import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
 
-    // ---- session guards
-    const email=(localStorage.getItem('current_user')||'').toLowerCase();
-    if(!email){ location.href='login.html'; }
-    if(email==='adminaccess1111'){ location.href='admin.html'; }
+    const cfg = {
+      apiKey:"AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
+      authDomain:"levelupcrew-ec008.firebaseapp.com",
+      projectId:"levelupcrew-ec008",
+      storageBucket:"levelupcrew-ec008.firebasestorage.app",
+      messagingSenderId:"112573541497",
+      appId:"1:112573541497:web:9395e25f7eb141405838a8"
+    };
+    const app = initializeApp(cfg);
+    const db  = getFirestore(app);
+    const st  = getStorage(app);
 
-    // ---- firebase
-    const cfg={apiKey:"AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",authDomain:"levelupcrew-ec008.firebaseapp.com",projectId:"levelupcrew-ec008",storageBucket:"levelupcrew-ec008.firebasestorage.app",messagingSenderId:"112573541497",appId:"1:112573541497:web:9395e25f7eb141405838a8"};
-    const app=initializeApp(cfg); 
-    const db=getFirestore(app); 
-    const storage=getStorage(app);
+    const who = localStorage.getItem('current_user') || '';
+    if (!who || who === 'adminaccess1111') location.href = 'login.html';
 
-    const list=document.getElementById('list');
-    const statusBox=document.getElementById('status');
+    const listEl = document.getElementById('questList');
 
-    function setStatus(html){ statusBox.style.display='block'; statusBox.innerHTML = html; }
-    function clearStatus(){ statusBox.style.display='none'; statusBox.innerHTML=''; }
-
-    function questCard(q, currentId, completed){
-      const isDone=(completed||[]).includes(q.id);
-      const isCurrent=currentId===q.id;
-      return `
-        <div class="card ${isCurrent?'current':''}">
-          <div class="quest">
-            <div>
-              <div class="q-title">${q.title||'(no title)'}</div>
-              <div class="q-points">+${q.points||0} points</div>
-            </div>
-            <button class="btn ${isDone?'disabled':''}" data-id="${q.id}" data-title="${q.title||''}" data-p="${q.points||0}" ${isDone?'disabled':''}>
-              ${isDone?'Completed':'Start'}
-            </button>
-          </div>
-          <div class="finish" data-finish="${q.id}" style="display:${isCurrent?'block':'none'}">
-            <div class="muted" style="margin-bottom:8px">Upload proof (photo or video). One file is enough.</div>
-            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-              <img class="preview" id="img-${q.id}" style="display:none" alt="">
-              <video class="preview" id="vid-${q.id}" style="display:none" controls></video>
-              <input type="file" accept="image/*,video/*" id="file-${q.id}">
-              <button class="btn" data-finishbtn="${q.id}">Finish</button>
-            </div>
-          </div>
-        </div>`;
-    }
-
-    async function ensureUser(){
-      const rf=doc(db,'users',email);
-      let s=await getDoc(rf);
-      if(!s.exists()){
-        console.warn('User doc missing, creating…', email);
-        await setDoc(rf,{email,level:1,points:0,badge:'Beginner',completedQuests:[],createdAt:Date.now()});
-        s=await getDoc(rf);
+    async function getUser() {
+      const r = doc(db,'users', who);
+      const s = await getDoc(r);
+      if (!s.exists()) {
+        await setDoc(r, { email: who, level: 1, points: 0, createdAt: Date.now(), password: '' }, { merge:true });
+        return { email: who, level: 1, points: 0 };
       }
       return s.data();
     }
-
-    async function loadQuests(){
-      clearStatus();
-      list.innerHTML = `<div class="card">Loading quests…</div>`;
-      try{
-        const user = await ensureUser();
-        const done = user.completedQuests || [];
-        const weeklyId = (user.weeklyQuest || {}).id;
-
-        const qsSnap = await getDocs(collection(db,'quests'));
-        const quests = qsSnap.docs.map(d=>({ id:d.id, ...d.data() }));
-        console.log('Quests fetched:', quests);
-
-        if(!quests.length){
-          list.innerHTML = `
-            <div class="card">
-              <div style="font-weight:700;margin-bottom:6px">No quests available</div>
-              <div class="muted">Ask admin to add quests in the Admin panel (collection <code>quests</code>).</div>
-            </div>`;
-          return;
-        }
-
-        quests.sort((a,b)=> (a.createdAt||0)-(b.createdAt||0) || String(a.title).localeCompare(String(b.title)));
-        list.innerHTML = quests.map(q=>questCard(q, weeklyId, done)).join('');
-
-        // start buttons
-        list.querySelectorAll('button[data-id]').forEach(btn=>{
-          btn.addEventListener('click', async ()=>{
-            if(btn.classList.contains('disabled')) return;
-            const id=btn.dataset.id, points=Number(btn.dataset.p), title=btn.dataset.title;
-            await updateDoc(doc(db,'users',email),{ weeklyQuest:{id,title,points} });
-            loadQuests();
-          });
-        });
-
-        // preview
-        list.querySelectorAll('input[type=file]').forEach(inp=>{
-          inp.addEventListener('change',(e)=>{
-            const file=e.target.files[0]; if(!file) return;
-            const id=e.target.id.replace('file-','');
-            const isVideo=file.type.startsWith('video/');
-            const img=document.getElementById('img-'+id);
-            const vid=document.getElementById('vid-'+id);
-            if(isVideo){ img.style.display='none'; vid.style.display='block'; vid.src=URL.createObjectURL(file); }
-            else{ vid.style.display='none'; img.style.display='block'; img.src=URL.createObjectURL(file); }
-          });
-        });
-
-        // finish
-        list.querySelectorAll('button[data-finishbtn]').forEach(btn=>{
-          btn.addEventListener('click', async ()=>{
-            const id=btn.dataset.finishbtn;
-            const file=document.getElementById('file-'+id).files[0];
-            if(!file){ setStatus('<div class="alert">Please upload a photo or video.</div>'); return; }
-
-            try{
-              const ts=Date.now();
-              const ext=(file.name.split('.').pop()||'bin').toLowerCase();
-              const sref=ref(storage,`proofs/${encodeURIComponent(email)}/${id}/${ts}.${ext}`);
-              await uploadBytes(sref,file);
-              const url=await getDownloadURL(sref);
-              const mediaType=file.type.startsWith('video/')?'video':'image';
-
-              const uref=doc(db,'users',email); const snap=await getDoc(uref); const d=snap.data();
-              const w=d.weeklyQuest;
-              if(!w || w.id!==id){ setStatus('<div class="alert">Please select this quest first (Start button).</div>'); return; }
-
-              await addDoc(collection(db,'completions'),{
-                user: email, questId: id, questTitle: w.title, points: Number(w.points||0),
-                mediaType, mediaUrl: url, createdAt: ts
-              });
-
-              let points=Number(d.points||0)+Number(w.points||0);
-              let level=Number(d.level||1);
-              while(points>=100){ points-=100; level++; }
-              const newBadge = (level>=50?'Diamond':level>=40?'Platinum':level>=30?'Gold':level>=20?'Silver':level>=10?'Bronze':'Beginner');
-
-              const completed=[...(d.completedQuests||[]), id];
-              await updateDoc(uref,{ points, level, badge:newBadge, completedQuests:completed, weeklyQuest:null });
-
-              setStatus('<div class="note">Submitted! Admin can review your proof.</div>');
-              loadQuests();
-            }catch(e){
-              console.error(e);
-              setStatus('<div class="alert">Upload failed. Check Firebase Storage rules & config.</div>');
-            }
-          });
-        });
-
-      }catch(err){
-        console.error('Error loading quests:', err);
-        if(err && err.code==='permission-denied'){
-          list.innerHTML = `<div class="card alert">
-            Permission denied reading <code>quests</code>. In Firestore Rules, allow read on <code>quests</code> for now while testing.
-          </div>`;
-        }else{
-          list.innerHTML = `<div class="card alert">
-            Could not load quests. Check the browser console (F12) for details.
-          </div>`;
-        }
-      }
+    async function getCompletedIds() {
+      const q = query(collection(db,'completions'), where('user','==', who));
+      const s = await getDocs(q);
+      const set = new Set();
+      s.forEach(d=>{ const c=d.data(); if(c.questId) set.add(c.questId); });
+      return set;
     }
 
-    loadQuests();
+    function questCard(q) {
+      return `
+        <div class="card" data-qid="${q.id}">
+          <div style="font-weight:800">${q.title}</div>
+          <div class="muted">+ ${q.points} points</div>
+          <input type="file" accept="image/*,video/*" class="proof">
+          <button class="btn finish" disabled>Finish</button>
+          <div class="muted status" style="margin-top:8px;display:none"></div>
+        </div>
+      `;
+    }
+    function setStatus(card, html){ const el = card.querySelector('.status'); el.innerHTML = html; el.style.display='block'; }
+
+    async function loadQuests(){
+      listEl.innerHTML = 'Loading quests…';
+      await getUser();
+      const done = await getCompletedIds();
+
+      const snap = await getDocs(query(collection(db,'quests'), orderBy('createdAt','desc')));
+      const quests = snap.docs.map(d=>({ id:d.id, ...d.data() })).filter(q=>!done.has(q.id));
+
+      if(!quests.length){ listEl.innerHTML = `<div class="muted">No available quests.</div>`; return; }
+      listEl.innerHTML = quests.map(questCard).join('');
+
+      listEl.querySelectorAll('.card').forEach(card=>{
+        const qid = card.dataset.qid;
+        const proof = card.querySelector('.proof');
+        const btn = card.querySelector('.finish');
+
+        proof.addEventListener('change', ()=> btn.disabled = !(proof.files && proof.files[0]) );
+
+        btn.addEventListener('click', async ()=>{
+          const file = proof.files && proof.files[0];
+          if(!file){ alert('Attach proof (photo/video)'); return; }
+          btn.disabled = true; setStatus(card,'Uploading proof…');
+
+          try{
+            const qsnap = await getDoc(doc(db,'quests', qid));
+            if(!qsnap.exists()){ setStatus(card,'Quest not found.'); return; }
+            const qData = qsnap.data();
+
+            const path = `proofs/${who}/${qid}-${Date.now()}-${file.name}`;
+            const r = sRef(st, path);
+            await uploadBytes(r, file);
+            const url = await getDownloadURL(r);
+
+            await addDoc(collection(db,'completions'), {
+              user: who,
+              questId: qid,
+              questTitle: qData.title || '',
+              points: qData.points || 0,
+              proofURL: url,
+              storagePath: path,
+              createdAt: Date.now()
+            });
+
+            // points/level update
+            const uref = doc(db,'users', who);
+            const us = await getDoc(uref);
+            let points = 0, level = 1;
+            if(us.exists()){ points = Number(us.data().points||0); level = Number(us.data().level||1); }
+            points += Number(qData.points||0);
+            const inc = Math.floor(points/100);
+            if(inc>0){ level += inc; points = points%100; }
+            await updateDoc(uref, { points, level });
+
+            setStatus(card,'Completed! This quest will disappear.');
+            setTimeout(()=> card.remove(), 600);
+          }catch(err){
+            console.error(err);
+            setStatus(card,'<span style="color:#b91c1c">Failed. Try again.</span>');
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+
+    loadQuests().catch(e=>{
+      console.error(e); listEl.innerHTML = 'Failed to load quests.';
+    });
   </script>
 </body>
 </html>
-
-
 
 
 
