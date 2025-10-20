@@ -10,17 +10,17 @@
     *{box-sizing:border-box}
     body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;min-height:100vh}
 
-    /* NAV */
-    nav{width:100%;background:var(--surface);border-bottom:1px solid var(--stroke);box-shadow:var(--shadow);padding:14px 20px;display:flex;justify-content:center;gap:25px;position:sticky;top:0;z-index:10}
+    nav{width:100%;background:var(--surface);border-bottom:1px solid var(--stroke);box-shadow:var(--shadow);
+      padding:14px 20px;display:flex;justify-content:center;gap:25px;position:sticky;top:0;z-index:10}
     nav a{color:var(--text);text-decoration:none;font-weight:600;font-size:1rem;transition:color .2s}
     nav a:hover, nav a.active{color:var(--primary)}
 
-    header{width:100%;max-width:900px;display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--stroke);border-radius:16px;padding:18px 24px;box-shadow:var(--shadow);margin:25px 0}
+    header{width:100%;max-width:900px;display:flex;justify-content:space-between;align-items:center;
+      background:var(--surface);border:1px solid var(--stroke);border-radius:16px;padding:18px 24px;box-shadow:var(--shadow);margin:25px 0}
     .brand{font-weight:700;font-size:1.3rem;color:var(--primary)}
     .muted{color:var(--muted)}
 
     .card{background:var(--surface);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);padding:20px;width:100%;max-width:900px;margin-bottom:20px}
-
     table{width:100%;border-collapse:collapse}
     th,td{padding:12px;border-bottom:1px solid var(--stroke);vertical-align:middle}
     th{color:var(--primary);font-weight:700;text-align:left}
@@ -28,7 +28,6 @@
     th.level, th.points, td.level, td.points{width:100px;text-align:right;font-feature-settings:"tnum";font-variant-numeric:tabular-nums}
     td.email{word-break:break-all}
     tr.me{background:#f8fbff}
-
     .you{display:flex;justify-content:space-between;align-items:center}
     .you .stat{font-weight:700}
     .badge{display:inline-flex;align-items:center;gap:8px;background:#f1f5f9;border:1px solid var(--stroke);padding:8px 10px;border-radius:999px;font-weight:700}
@@ -38,14 +37,13 @@
   </style>
 </head>
 <body>
-  <!-- NAV -->
-<nav>
-  <a href="dashboard.html">Dashboard</a>
-  <a href="quests.html">Quests</a>
-  <a href="leaderboard.html" class="active">Leaderboard</a>
-  <a href="profile.html">Profile</a>
-</nav>
 
+  <nav>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="quests.html">Quests</a>
+    <a href="leaderboard.html" class="active">Leaderboard</a>
+    <a href="profile.html">Profile</a>
+  </nav>
 
   <header>
     <div class="brand">LevelUpCrew</div>
@@ -53,7 +51,7 @@
   </header>
 
   <div class="card">
-    <h2 style="margin:0 0 10px 0;">Top 10 Leaderboard</h2>
+    <h2>Top 10 Leaderboard</h2>
     <table>
       <thead>
         <tr>
@@ -65,11 +63,11 @@
       </thead>
       <tbody id="tbody"></tbody>
     </table>
-    <div class="hint" style="margin-top:8px">Sorted by Level, then Points. Admin account is excluded.</div>
+    <div class="hint">Sorted by Level, then Points. Admin account is excluded.</div>
   </div>
 
   <div class="card">
-    <h2 style="margin:0 0 10px 0;">Your Position</h2>
+    <h2>Your Position</h2>
     <div class="you">
       <div>
         <div id="yourRank" class="stat">#—</div>
@@ -86,16 +84,12 @@
   </div>
 
   <script type="module">
-    // Session + logout
-    const email = (localStorage.getItem('current_user') || '').toLowerCase();
+    const email = (localStorage.getItem('current_user')||'').toLowerCase();
     if(!email){ location.href='login.html'; }
+
     document.getElementById('who').textContent = email;
     document.getElementById('yourEmail').textContent = email;
-    document.getElementById('logoutLink').addEventListener('click', (e)=>{
-      e.preventDefault(); localStorage.removeItem('current_user'); location.href='login.html';
-    });
 
-    // Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
     import { getFirestore, collection, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
@@ -103,14 +97,13 @@
       apiKey: "AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
       authDomain: "levelupcrew-ec008.firebaseapp.com",
       projectId: "levelupcrew-ec008",
-      storageBucket: "levelupcrew-ec008.firebasestorage.app",
       messagingSenderId: "112573541497",
       appId: "1:112573541497:web:9395e25f7eb141405838a8"
     };
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
 
-    // Elements
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
     const tbody = document.getElementById('tbody');
     const yourRankEl = document.getElementById('yourRank');
     const youLevelEl = document.getElementById('youLevel');
@@ -136,14 +129,12 @@
     }
 
     function sortRows(rows){
-      rows.sort((a,b)=> b.level - a.level || b.points - a.points || a.email.localeCompare(b.email));
-      return rows;
+      return rows.sort((a,b)=> b.level - a.level || b.points - a.points || a.email.localeCompare(b.email));
     }
 
     function renderTable(rows){
-      const top = rows.slice(0,10);
-      tbody.innerHTML = top.map((r, i) => `
-        <tr class="${r.email===email ? 'me' : ''}">
+      tbody.innerHTML = rows.slice(0,10).map((r,i)=>`
+        <tr class="${r.email===email?'me':''}">
           <td class="rank">${i+1}</td>
           <td class="email">${r.email}</td>
           <td class="level">${r.level}</td>
@@ -154,10 +145,7 @@
 
     function renderYou(rows){
       const idx = rows.findIndex(r => r.email === email);
-      if(idx === -1){
-        yourRankEl.textContent = '#—';
-        return;
-      }
+      if(idx === -1){ yourRankEl.textContent='#—'; return; }
       const me = rows[idx];
       yourRankEl.textContent = `#${idx+1}`;
       youLevelEl.textContent = me.level;
@@ -167,18 +155,18 @@
       badgeDotEl.style.background = b.color;
     }
 
-    // Subscribe to ALL users; sort locally so your row is always found
+    // 🔁 Real-time updates: leaderboard auto refresh when points or levels change
     onSnapshot(collection(db,'users'), (snap)=>{
       const rows = snap.docs
         .map(d=>normalizeRow(d.data()||{}, d.id))
-        .filter(u => u.email !== 'adminaccess1111');
+        .filter(u => u.email && u.email !== 'adminaccess1111');
 
-      sortRows(rows);
-      renderTable(rows);
-      renderYou(rows);
+      const sorted = sortRows(rows);
+      renderTable(sorted);
+      renderYou(sorted);
     });
 
-    // Fill “Your Position” quickly on first load
+    // preload user badge quickly
     getDoc(doc(db,'users', email)).then(s=>{
       if(s.exists()){
         const d = s.data();
@@ -192,5 +180,7 @@
   </script>
 </body>
 </html>
+
+
 
 
