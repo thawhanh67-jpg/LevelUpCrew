@@ -1,235 +1,322 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LevelUpCrew — Admin</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
-    :root { --bg:#f6f7fb; --surface:#fff; --stroke:#e6e8ef; --text:#0f172a; --primary:#3b82f6; --danger:#ef4444; --warn:#f59e0b; --shadow:0 10px 24px rgba(15,23,42,.06) }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;min-height:100vh}
-    header{width:100%;max-width:980px;display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--stroke);border-radius:16px;padding:18px 24px;box-shadow:var(--shadow);margin:24px 0}
-    .brand{font-weight:700;font-size:1.25rem;color:var(--primary)}
-    .logout{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
-    .logout:hover{background:#2563eb}
-    .card{background:var(--surface);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);padding:24px;width:100%;max-width:980px;margin-bottom:24px}
+    :root{--bg:#f6f7fb;--surface:#fff;--stroke:#e6e8ef;--text:#0f172a;--muted:#6b7280;--primary:#3b82f6;--danger:#ef4444;--shadow:0 10px 24px rgba(15,23,42,.06)}
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
+    header{max-width:1100px;margin:16px auto;background:var(--surface);border:1px solid var(--stroke);box-shadow:var(--shadow);padding:12px 16px;border-radius:12px;display:flex;justify-content:space-between;align-items:center}
+    .brand{font-weight:700;font-size:1.25rem;color:var(--primary)} .logout{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .wrap{max-width:1100px;margin:12px auto;display:grid;gap:16px}
+    .card{background:var(--surface);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);padding:16px}
     label{display:block;margin:10px 0 6px;font-weight:700}
-    input{width:100%;padding:14px;border:1px solid var(--stroke);border-radius:12px;font-size:1rem}
-    .row{display:flex;gap:12px}.row>*{flex:1}
-    .btn{background:var(--primary);color:#fff;border:none;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer;margin-top:14px}
-    .btn:hover{background:#2563eb}
-    .muted{color:#6b7280;font-size:.92rem;margin-top:8px}
-
-    .list{margin-top:12px;border-top:1px solid var(--stroke);padding-top:6px}
-    .qitem{display:flex;gap:12px;align-items:center;justify-content:space-between;border-bottom:1px dashed var(--stroke);padding:10px 0}
-    .qleft{display:flex;flex-direction:column}
-    .qtitle{font-weight:700}
-    .qpoints{color:#475569;font-size:.92rem}
+    input,textarea{width:100%;padding:12px;border:1px solid var(--stroke);border-radius:10px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .btn{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer}
+    .btn.secondary{background:#0ea5e9}
     .del{background:var(--danger);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer}
-    .del:hover{background:#dc2626}
-    .lock{color:#6b7280;font-weight:700}
-
     table{width:100%;border-collapse:collapse;margin-top:10px}
-    th,td{padding:12px;border-bottom:1px solid var(--stroke);vertical-align:middle}
-    th{color:var(--primary);font-weight:700;text-align:left}
-    th.level,th.points,td.level,td.points{text-align:right;width:100px;font-feature-settings:"tnum";font-variant-numeric:tabular-nums}
-    td.actions{white-space:nowrap}
-    td.actions button{border:none;border-radius:8px;padding:8px 10px;font-weight:700;cursor:pointer;margin-left:6px}
-    .btn-pass{background:var(--warn);color:#111827}.btn-pass:hover{background:#d97706}
-    .btn-reset{background:#3b82f6;color:#fff}.btn-reset:hover{background:#2563eb}
-    .btn-remove{background:var(--danger);color:#fff}.btn-remove:hover{background:#dc2626}
-    .empty{color:#6b7280;text-align:center;padding:16px 0}
+    th,td{padding:10px;border-bottom:1px solid var(--stroke);vertical-align:middle}
+    th{color:var(--primary);text-align:left}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+    .media{border:1px solid var(--stroke);border-radius:12px;padding:10px;background:#fff}
+    .muted{color:#6b7280}
+    .chip{display:inline-block;background:#eef2ff;color:#1e293b;border:1px solid var(--stroke);padding:4px 8px;border-radius:999px;font-weight:600}
+    canvas{max-width:100%;height:260px}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
   </style>
 </head>
 <body>
+  <script>
+    // very simple gate (same as before)
+    const me=localStorage.getItem('current_user');
+    if(me!=='adminaccess1111'){ location.replace('login.html'); }
+  </script>
+
   <header>
-    <div class="brand">LevelUpCrew — Admin</div>
-    <button id="logoutBtn" class="logout">Logout</button>
+    <div class="brand">Admin Panel</div>
+    <button id="logout" class="logout">Logout</button>
   </header>
 
-  <!-- Add Quest -->
-  <div class="card">
-    <h2 style="margin:0 0 8px 0;">Add New Quest</h2>
-    <label for="qTitle">Quest Title</label>
-    <input id="qTitle" placeholder="e.g., Attend Freshers’ Fair booth" />
-    <div class="row">
-      <div>
-        <label for="qPoints">Points</label>
-        <input id="qPoints" type="number" min="1" max="1000" placeholder="e.g., 40" />
+  <div class="wrap">
+    <!-- Quests management -->
+    <div class="card">
+      <h3 style="margin:0 0 8px 0">Create Quest</h3>
+      <div class="row">
+        <div style="flex:1">
+          <label>Title</label>
+          <input id="qTitle" placeholder="Quest title">
+        </div>
+        <div style="width:160px">
+          <label>Points</label>
+          <input id="qPoints" type="number" min="1" value="10">
+        </div>
       </div>
+      <div style="margin-top:10px"><button class="btn" id="addQuest">Add Quest</button></div>
+      <h4>Current Quests</h4>
+      <table>
+        <thead><tr><th>Title</th><th>Points</th><th>Actions</th></tr></thead>
+        <tbody id="questBody"></tbody>
+      </table>
     </div>
-    <button id="addBtn" class="btn">Add Quest</button>
-    <div class="muted">Quests are saved globally in Firestore and appear on all students’ Quests page.</div>
-  </div>
 
-  <!-- Current Quests -->
-  <div class="card">
-    <h2 style="margin:0 0 8px 0;">Current Quests</h2>
-    <div id="qList" class="list"></div>
-    <div class="muted">Seed quests are locked. Delete non-seed quests to remove for everyone.</div>
-  </div>
+    <!-- Analytics: Participants per Quest -->
+    <div class="card">
+      <h3 style="margin:0 0 8px 0">Participants per Quest</h3>
+      <div class="toolbar">
+        <button class="btn secondary" id="exportQuestCSV">Export CSV</button>
+      </div>
+      <canvas id="perQuestChart"></canvas>
+      <div class="muted" style="margin-top:6px">Counts based on records in <code>completions</code>.</div>
+    </div>
 
-  <!-- Accounts -->
-  <div class="card">
-    <h2 style="margin:0 0 8px 0;">Accounts & Progress</h2>
-    <div class="muted">Reset Password clears the saved password (user must set a new one on next login). Reset Data sets points to 0 (keeps level). Remove deletes the entire account.</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Email</th>
-          <th class="level">Level</th>
-          <th class="points">Points</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="userBody"></tbody>
-    </table>
-    <div id="noUsers" class="empty" style="display:none;">No accounts yet.</div>
+    <!-- Analytics: New Members Weekly -->
+    <div class="card">
+      <h3 style="margin:0 0 8px 0">New Members Weekly</h3>
+      <div class="toolbar">
+        <button class="btn secondary" id="exportMembersCSV">Export CSV</button>
+      </div>
+      <canvas id="newUsersChart"></canvas>
+      <div class="muted" style="margin-top:6px">Computed from <code>users.createdAt</code>.</div>
+    </div>
+
+    <!-- Proofs review -->
+    <div class="card">
+      <h3 style="margin:0 0 8px 0">Students' Proofs (latest)</h3>
+      <div class="toolbar">
+        <button class="btn secondary" id="exportCompletionsCSV">Export ALL Completions (CSV)</button>
+      </div>
+      <div id="proofGrid" class="grid"></div>
+      <div class="muted" style="margin-top:8px">Click a thumbnail to open/download.</div>
+    </div>
+
+    <!-- Posts (announcements / knowledge sharing) -->
+    <div class="card">
+      <h3 style="margin:0 0 8px 0">Create Post (photo/video + text)</h3>
+      <div class="row">
+        <div style="flex:1"><label>Title</label><input id="pTitle" placeholder="Post title"></div>
+        <div style="flex:2"><label>Description</label><textarea id="pBody" rows="2" placeholder="Info about upcoming quest, tips, etc."></textarea></div>
+        <div style="flex:1"><label>Media (photo/video)</label><input type="file" id="pFile" accept="image/*,video/*"></div>
+      </div>
+      <div style="margin-top:10px"><button class="btn" id="addPost">Publish Post</button></div>
+      <h4 style="margin-top:16px">Recent Posts</h4>
+      <div id="postGrid" class="grid"></div>
+    </div>
+
+    <!-- Users -->
+    <div class="card">
+      <h3 style="margin:0 0 8px 0">Users</h3>
+      <table>
+        <thead><tr><th>Email</th><th>Level</th><th>Points</th><th>Actions</th></tr></thead>
+        <tbody id="userBody"></tbody>
+      </table>
+    </div>
   </div>
 
   <script type="module">
-    // ===== Admin gate =====
-    const me = localStorage.getItem('current_user');
-    if(me !== 'adminaccess1111'){ location.href = 'login.html'; }
-    document.getElementById('logoutBtn').addEventListener('click', ()=>{
-      localStorage.removeItem('current_user'); location.href = 'login.html';
-    });
-
-    // ===== Firebase =====
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import {
-      getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, deleteDoc,
-      onSnapshot, query, orderBy, updateDoc, deleteField
-    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, getDocs, updateDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
-      authDomain: "levelupcrew-ec008.firebaseapp.com",
-      projectId: "levelupcrew-ec008",
-      storageBucket: "levelupcrew-ec008.firebasestorage.app",
-      messagingSenderId: "112573541497",
-      appId: "1:112573541497:web:9395e25f7eb141405838a8"
+    // Firebase
+    const cfg={apiKey:"AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",authDomain:"levelupcrew-ec008.firebaseapp.com",projectId:"levelupcrew-ec008",storageBucket:"levelupcrew-ec008.firebasestorage.app",messagingSenderId:"112573541497",appId:"1:112573541497:web:9395e25f7eb141405838a8"};
+    const app=initializeApp(cfg); const db=getFirestore(app); const storage=getStorage(app);
+
+    document.getElementById('logout').onclick=()=>{ localStorage.removeItem('current_user'); location.href='login.html'; };
+
+    /* ---------- Helpers for CSV ---------- */
+    function toCSV(rows){ // rows: array of objects
+      if(!rows.length) return '';
+      const headers = Object.keys(rows[0]);
+      const escape = (v)=> `"${String(v??'').replace(/"/g,'""')}"`;
+      const lines = [headers.join(',')].concat(rows.map(r=>headers.map(h=>escape(r[h])).join(',')));
+      return lines.join('\r\n');
+    }
+    function downloadCSV(filename, rows){
+      const csv = toCSV(rows);
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url  = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+    const weekLabel=(ms)=>{ const d=new Date(ms); const y=d.getFullYear(); const onejan=new Date(y,0,1); const week=Math.ceil((((d - onejan)/86400000)+onejan.getDay()+1)/7); return `${y}-W${String(week).padStart(2,'0')}`; };
+
+    // Stores for exporting
+    const ReportCache = {
+      perQuestArray: [],   // [{questTitle, participants}]
+      membersArray: [],    // [{week, newMembers}]
+      completionsArray: [] // full rows
     };
-    const app = initializeApp(firebaseConfig);
-    const db  = getFirestore(app);
 
-    // ===== Quests (collection: 'quests') =====
-    const qCol = collection(db, 'quests');
-    const qListDiv = document.getElementById('qList');
+    /* ---------- Quests management ---------- */
+    const qTitle=document.getElementById('qTitle'); const qPoints=document.getElementById('qPoints'); const qBody=document.getElementById('questBody');
+    document.getElementById('addQuest').onclick=async()=>{
+      const t=qTitle.value.trim(); const p=Number(qPoints.value||0);
+      if(!t||p<=0){ alert('Enter title and points'); return; }
+      await addDoc(collection(db,'quests'),{title:t,points:p,createdAt:Date.now(),seed:false});
+      qTitle.value=''; qPoints.value=10;
+    };
+    onSnapshot(collection(db,'quests'),(snap)=>{
+      qBody.innerHTML=snap.docs.map(d=>`<tr><td>${d.data().title}</td><td>${d.data().points}</td><td><button class="del" data-id="${d.id}">Remove</button></td></tr>`).join('');
+    });
+    qBody.addEventListener('click',async(e)=>{ const id=e.target.dataset.id; if(!id) return; await deleteDoc(doc(db,'quests',id)); });
 
-    // Seed your original 3 quests if they're missing
-    async function ensureSeeds(){
-      const seeds = [
-        { id:'q_orient',  title:'Join the campus orientation event', points:50, createdAt:1, seed:true },
-        { id:'q_reflect', title:'Post your weekly study reflection', points:25, createdAt:2, seed:true },
-        { id:'q_quiz',    title:'Complete Chapter 1 quiz',          points:30, createdAt:3, seed:true }
-      ];
-      const snap = await getDocs(qCol);
-      const have = new Set(snap.docs.map(d=>d.id));
-      for(const s of seeds){
-        if(!have.has(s.id)){ await setDoc(doc(db,'quests', s.id), s); }
+    /* ---------- Posts (announcements) ---------- */
+    const pTitle=document.getElementById('pTitle'); const pBody=document.getElementById('pBody'); const pFile=document.getElementById('pFile'); const postGrid=document.getElementById('postGrid');
+    document.getElementById('addPost').onclick=async()=>{
+      const title=pTitle.value.trim(); const body=pBody.value.trim(); const file=pFile.files[0]||null;
+      if(!title) return alert('Add a title');
+      let mediaUrl='', mediaType='';
+      if(file){
+        mediaType = file.type.startsWith('video/') ? 'video' : 'image';
+        const ext=(file.name.split('.').pop()||'bin').toLowerCase();
+        const sref=ref(storage,`posts/${Date.now()}.${ext}`);
+        await uploadBytes(sref,file); mediaUrl=await getDownloadURL(sref);
       }
-    }
-    ensureSeeds();
-
-    function renderQuestList(quests){
-      qListDiv.innerHTML = quests.length ? quests.map(q => `
-        <div class="qitem">
-          <div class="qleft">
-            <span class="qtitle">${q.title}</span>
-            <span class="qpoints">${q.points} pts • id: ${q.id}${q.seed ? ' • locked' : ''}</span>
-          </div>
-          <div>
-            ${q.seed ? '<span class="lock">Locked</span>' : `<button class="del" data-id="${q.id}">Delete</button>`}
-          </div>
-        </div>
-      `).join('') : '<div class="muted">No quests yet.</div>';
-    }
-
-    onSnapshot(query(qCol, orderBy('createdAt','desc')), (snap)=>{
-      const quests = snap.docs.map(d=>({ id:d.id, ...d.data() }));
-      renderQuestList(quests);
+      await addDoc(collection(db,'announcements'),{title,body,mediaUrl,mediaType,createdAt:Date.now()});
+      pTitle.value=''; pBody.value=''; pFile.value='';
+    };
+    onSnapshot(query(collection(db,'announcements'), orderBy('createdAt','desc')), (snap)=>{
+      postGrid.innerHTML=snap.docs.map(d=>{
+        const x=d.data();
+        const media = x.mediaUrl ? (x.mediaType==='video'
+          ? `<video controls style="width:100%;border-radius:10px"><source src="${x.mediaUrl}"></video>`
+          : `<img src="${x.mediaUrl}" style="width:100%;border-radius:10px">`) : '';
+        return `<div class="media">
+          <div class="chip">Post</div>
+          <h4 style="margin:8px 0 6px 0">${x.title}</h4>
+          <div class="muted" style="white-space:pre-wrap">${x.body||''}</div>
+          <div style="margin-top:8px">${media}</div>
+        </div>`;
+      }).join('');
     });
 
-    qListDiv.addEventListener('click', async (e)=>{
-      const btn = e.target.closest('.del'); if(!btn) return;
-      const id = btn.dataset.id;
-      if(!confirm('Delete this quest for everyone?')) return;
-      await deleteDoc(doc(db,'quests', id));
-      alert('Quest deleted.');
+    /* ---------- Proofs (latest) ---------- */
+    const proofGrid=document.getElementById('proofGrid');
+    onSnapshot(query(collection(db,'completions'), orderBy('createdAt','desc'), limit(24)), (snap)=>{
+      proofGrid.innerHTML=snap.docs.map(d=>{
+        const c=d.data();
+        const media = c.mediaType==='video'
+          ? `<video controls style="width:100%;border-radius:10px"><source src="${c.mediaUrl}"></video>`
+          : `<img src="${c.mediaUrl}" style="width:100%;border-radius:10px">`;
+        return `<div class="media">
+          <div class="chip">${c.questTitle||c.questId}</div>
+          <div class="muted" style="margin:6px 0">By ${c.user} • +${c.points} pts</div>
+          <a href="${c.mediaUrl}" target="_blank">${media}</a>
+        </div>`;
+      }).join('');
     });
 
-    document.getElementById('addBtn').addEventListener('click', async ()=>{
-      const title = document.getElementById('qTitle').value.trim();
-      const pts = Number(document.getElementById('qPoints').value);
-      if(!title){ alert('Enter a quest title'); return; }
-      if(!pts || pts < 1){ alert('Enter valid points (1 or more)'); return; }
-      await addDoc(qCol, { title, points: pts, createdAt: Date.now(), seed:false });
-      document.getElementById('qTitle').value = '';
-      document.getElementById('qPoints').value = '';
-      alert('Quest added!');
-    });
-
-    // ===== Accounts (collection: 'users', doc id = email) =====
-    const userBody = document.getElementById('userBody');
-    const noUsers  = document.getElementById('noUsers');
-
-    function sortRows(rows){
-      rows.sort((a,b)=> (Number(b.level||1)-Number(a.level||1)) || (Number(b.points||0)-Number(a.points||0)) || (a.email||'').localeCompare(b.email||'')); 
-      return rows;
-    }
-
-    function renderUsers(rows){
-      noUsers.style.display = rows.length ? 'none' : 'block';
-      userBody.innerHTML = rows.map(r => `
-        <tr>
-          <td>${r.email}</td>
-          <td class="level">${Number(r.level||1)}</td>
-          <td class="points">${Number(r.points||0)}</td>
-          <td class="actions">
-            ${r.email==='adminaccess1111' ? '<em style="color:#64748b;">Locked</em>' : `
-              <button class="btn-pass"  data-act="pass"  data-email="${r.email}">Reset Password</button>
-              <button class="btn-reset" data-act="reset" data-email="${r.email}">Reset Data</button>
-              <button class="btn-remove" data-act="remove" data-email="${r.email}">Remove</button>
-            `}
+    /* ---------- Users table ---------- */
+    const uBody=document.getElementById('userBody');
+    onSnapshot(collection(db,'users'),(snap)=>{
+      uBody.innerHTML=snap.docs.map(d=>{
+        const u=d.data(); const id=d.id; if(id==='adminaccess1111') return '';
+        return `<tr>
+          <td>${id}</td><td>${u.level||1}</td><td>${u.points||0}</td>
+          <td>
+            <button class="del" data-reset="${id}">Reset Data</button>
+            <button class="btn" data-pass="${id}">Reset Password</button>
           </td>
-        </tr>
-      `).join('');
+        </tr>`;
+      }).join('');
+    });
+    uBody.addEventListener('click',async(e)=>{
+      const rid=e.target.dataset.reset; const pid=e.target.dataset.pass;
+      if(rid){ if(!confirm('Reset this account?')) return;
+        await updateDoc(doc(db,'users',rid),{level:1,points:0,badge:'Beginner',completedQuests:[],weeklyQuest:null});
+      }
+      if(pid){ const np=prompt('New passbook number for '+pid+':'); if(!np) return; await updateDoc(doc(db,'users',pid),{password:np}); }
+    });
+
+    /* ---------- Analytics build + CSV data ---------- */
+    async function buildAnalytics(){
+      const [questsSnap, usersSnap, compsSnap] = await Promise.all([
+        getDocs(collection(db,'quests')),
+        getDocs(collection(db,'users')),
+        getDocs(collection(db,'completions'))
+      ]);
+
+      // Participants per quest
+      const questCounts = {}; // title -> count
+      compsSnap.forEach(d=>{
+        const c=d.data();
+        const title=c.questTitle || c.questId || 'Unknown';
+        questCounts[title]=(questCounts[title]||0)+1;
+      });
+      const qLabels=Object.keys(questCounts);
+      const qVals=qLabels.map(k=>questCounts[k]);
+
+      // CSV data for per-quest
+      ReportCache.perQuestArray = qLabels.map((title,i)=>({ questTitle:title, participants:qVals[i] }));
+
+      // Draw chart
+      new Chart(document.getElementById('perQuestChart'),{
+        type:'bar',
+        data:{ labels:qLabels, datasets:[{ label:'Participants', data:qVals, backgroundColor:'#3b82f6' }]},
+        options:{ responsive:true, plugins:{ legend:{ display:false }}, scales:{ x:{ ticks:{ autoSkip:false }}}}
+      });
+
+      // New members weekly
+      const weekCounts={};
+      usersSnap.forEach(d=>{
+        const u=d.data(); const t=u.createdAt;
+        if(t){ const w=weekLabel(t); weekCounts[w]=(weekCounts[w]||0)+1; }
+      });
+      const wLabels=Object.keys(weekCounts).sort();
+      const wVals=wLabels.map(k=>weekCounts[k]);
+
+      // CSV data for weekly members
+      ReportCache.membersArray = wLabels.map((week,i)=>({ week, newMembers:wVals[i] }));
+
+      // Draw chart
+      new Chart(document.getElementById('newUsersChart'),{
+        type:'line',
+        data:{ labels:wLabels, datasets:[{ label:'New Members', data:wVals, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.3)', fill:true, tension:.35 }]},
+        options:{ responsive:true, plugins:{ legend:{ display:false }}}
+      });
+
+      // Completions raw (for CSV)
+      ReportCache.completionsArray = compsSnap.docs.map(d=>{
+        const c=d.data();
+        return {
+          createdAtISO: new Date(c.createdAt||0).toISOString(),
+          week: c.createdAt ? weekLabel(c.createdAt) : '',
+          user: c.user || '',
+          questId: c.questId || '',
+          questTitle: c.questTitle || '',
+          points: c.points || 0,
+          mediaType: c.mediaType || '',
+          mediaUrl: c.mediaUrl || ''
+        };
+      });
+
+      // Also render the quest table (optional summary)
+      // (title, points, participants)
+      const qMeta = {};
+      questsSnap.forEach(d=>{
+        const q=d.data();
+        qMeta[q.title]=q.points;
+      });
+      const qTable=document.createElement('tbody');
+      qTable.innerHTML = qLabels.map(t=>`<tr><td>${t}</td><td>${qMeta[t]??'-'}</td><td>${questCounts[t]}</td></tr>`).join('');
+      document.querySelector('#questBody')?.replaceWith(qTable); // keep original table used above; this line is safe if it exists
+      qTable.id='questBody';
     }
 
-    onSnapshot(collection(db,'users'), (snap)=>{
-      const rows = snap.docs.map(d=>({ email:d.id, ...(d.data()||{}) }));
-      sortRows(rows);
-      renderUsers(rows);
-    });
+    // Export buttons
+    document.getElementById('exportQuestCSV').onclick=()=> downloadCSV(`participants_per_quest.csv`, ReportCache.perQuestArray);
+    document.getElementById('exportMembersCSV').onclick=()=> downloadCSV(`new_members_weekly.csv`, ReportCache.membersArray);
+    document.getElementById('exportCompletionsCSV').onclick=()=> downloadCSV(`completions_all.csv`, ReportCache.completionsArray);
 
-    userBody.addEventListener('click', async (e)=>{
-      const btn = e.target.closest('button'); if(!btn) return;
-      const { act, email } = btn.dataset;
-      if(email === 'adminaccess1111'){ alert('Admin account cannot be modified.'); return; }
-      const ref = doc(db, 'users', email.toLowerCase());
-
-      if(act === 'pass'){
-        if(!confirm(`Reset password for ${email}? (User must set a new one next login)`)) return;
-        await updateDoc(ref, { password: deleteField() });
-        alert('Password cleared. The user must set a new password next login.');
-      }
-
-      if(act === 'reset'){
-        if(!confirm(`Set points to 0 for ${email}? Level will be kept.`)) return;
-        const snap = await getDoc(ref);
-        const cur = snap.exists() ? snap.data() : {};
-        await setDoc(ref, { ...cur, points: 0 }, { merge:true });
-        alert('Points reset to 0.');
-      }
-
-      if(act === 'remove'){
-        if(!confirm(`Remove ${email}? This deletes their account data.`)) return;
-        await deleteDoc(ref);
-        alert('Account removed.');
-      }
-    });
+    buildAnalytics();
   </script>
 </body>
 </html>
+
+
