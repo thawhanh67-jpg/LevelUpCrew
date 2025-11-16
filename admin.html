@@ -1,385 +1,302 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LevelUpCrew — Admin</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
-  <style>
-    :root{--bg:#f6f7fb;--surface:#fff;--stroke:#e6e8ef;--text:#0f172a;--muted:#64748b;--primary:#3b82f6;--shadow:0 10px 24px rgba(15,23,42,.06)}
-    *{box-sizing:border-box}
-    body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
-    header{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--stroke);
-      box-shadow:var(--shadow);padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
-    .brand{font-weight:800}
-    .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
-    .card{background:var(--surface);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
-    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-    input{padding:10px 12px;border:1px solid var(--stroke);border-radius:10px}
-    .btn{background:var(--primary);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
-    .btn.ghost{background:#eef2ff;color:#1e293b}
-    .del{background:#ef4444}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:12px;border-bottom:1px solid var(--stroke);vertical-align:middle}
-    th{font-weight:800;text-align:left}
-    .muted{color:var(--muted)}
-    .note{border:1px solid #dbeafe;background:#eff6ff;padding:10px;border-radius:10px}
-    .alert{border:1px solid #fecaca;background:#fee2e2;padding:10px;border-radius:10px;color:#7f1d1d}
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-    @media (max-width:900px){.grid2{grid-template-columns:1fr}}
+<script type="module">
+  // --------- Safe admin gate ---------
+  const who = localStorage.getItem('current_user') || '';
+  const guard = document.getElementById('guardMsg');
+  document.getElementById('logout').addEventListener('click', () => {
+    localStorage.removeItem('current_user'); location.href = 'login.html';
+  });
+  if (who !== 'adminaccess1111') {
+    guard.style.display = 'block';
+    guard.innerHTML = `Access denied. You are logged in as: <b>${who || '(none)'}</b>.<br>Log in as <b>adminaccess1111</b>.
+      <div style="margin-top:8px"><a class="btn" href="login.html">Go to Login</a></div>`;
+  } else {
+    initAdmin();
+  }
 
-    /* proof thumbnails */
-    .thumb{max-width:140px;max-height:140px;border-radius:10px;border:1px solid var(--stroke);object-fit:cover}
-    .nowrap{white-space:nowrap}
-    .actions{display:flex;gap:8px;flex-wrap:wrap}
-  </style>
-</head>
-<body>
-  <header>
-  <div class="brand">LevelUpCrew — Admin</div>
-  <div class="row">
-    <button id="refreshAdmin" class="btn ghost" title="Reload data">Refresh</button>
-    <button id="logout" class="btn">Logout</button>
-  </div>
-</header>
+  // ---------------- MAIN ----------------
+  async function initAdmin() {
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js");
+    const {
+      getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc,
+      query, where
+    } = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js");
 
+    const cfg = {
+      apiKey: "AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
+      authDomain: "levelupcrew-ec008.firebaseapp.com",
+      projectId: "levelupcrew-ec008",
+      messagingSenderId: "112573541497",
+      appId: "1:112573541497:web:9395e25f7eb141405838a8"
+    };
+    const app = initializeApp(cfg);
+    const db = getFirestore(app);
 
-  <div class="wrap">
-    <div id="guardMsg" class="card alert" style="display:none"></div>
+    // Error panel
+    const pageError = document.createElement('div');
+    pageError.style.cssText = 'max-width:1100px;margin:12px auto;padding:12px;border:1px solid #fecaca;background:#fee2e2;color:#7f1d1d;border-radius:12px;display:none';
+    document.body.prepend(pageError);
+    const fatal = (m, e) => {
+      pageError.style.display = 'block';
+      pageError.innerHTML = `<b>Error:</b> ${m}<pre style="white-space:pre-wrap">${(e?.message || e || '')}</pre>`;
+      console.error(m, e);
+    };
 
-    <!-- Add Quest -->
-    <div class="card">
-      <div style="font-weight:800;margin-bottom:10px">Add Quest</div>
-      <div class="row">
-        <input id="qTitle" placeholder="Quest title" style="flex:1;min-width:240px">
-        <input id="qPoints" type="number" min="1" step="1" value="10" style="width:120px">
-        <button id="addQuest" class="btn">Add</button>
-      </div>
-      <div class="muted" style="margin-top:8px">New quests appear for all students after page refresh.</div>
-    </div>
+    document.getElementById('refreshAdmin').addEventListener('click', async () => {
+      await Promise.all([loadQuests(), loadQuestNumbers(), loadMemberNumbers(), loadSubmissions(), loadUsers()]);
+    });
 
-    <!-- Quests list -->
-    <div class="card">
-      <div style="font-weight:800;margin-bottom:10px">All Quests</div>
-      <div id="qStatus" class="note" style="display:none"></div>
-      <table>
-        <thead>
-          <tr><th>Title</th><th style="width:120px">Points</th><th style="width:140px">Actions</th></tr>
-        </thead>
-        <tbody id="questBody"><tr><td colspan="3" class="muted">Loading…</td></tr></tbody>
-      </table>
-    </div>
+    // ---- Quests ----
+    const qTitle = document.getElementById('qTitle');
+    const qPoints = document.getElementById('qPoints');
+    const addBtn = document.getElementById('addQuest');
+    const qBody = document.getElementById('questBody');
+    const qStatus = document.getElementById('qStatus');
+    const qSet = h => { qStatus.style.display = 'block'; qStatus.innerHTML = h; };
+    const qClear = () => { qStatus.style.display = 'none'; qStatus.innerHTML = ''; };
 
-    <!-- Numbers-only analytics -->
-    <div class="grid2">
-      <div class="card">
-        <div style="font-weight:800;margin-bottom:10px">Participants per Quest</div>
-        <div id="kpi-quest-total" class="muted" style="margin-bottom:8px">Loading…</div>
-        <table>
-          <thead><tr><th>Quest</th><th style="width:140px">Participants</th></tr></thead>
-          <tbody id="tblQuestCounts"><tr><td colspan="2" class="muted">Loading…</td></tr></tbody>
-        </table>
-      </div>
-      <div class="card">
-        <div style="font-weight:800;margin-bottom:10px">New Members per Week</div>
-        <div id="kpi-member-total" class="muted" style="margin-bottom:8px">Loading…</div>
-        <table>
-          <thead><tr><th>Week</th><th style="width:140px">New Members</th></tr></thead>
-          <tbody id="tblWeekCounts"><tr><td colspan="2" class="muted">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
+    async function loadQuests() {
+      qBody.innerHTML = `<tr><td colspan="3" class="muted">Loading…</td></tr>`;
+      qClear();
+      try {
+        const snap = await getDocs(collection(db, 'quests'));
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        qBody.innerHTML = items.length
+          ? items.map(q => `<tr><td>${q.title || '(no title)'}</td><td>${q.points ?? 0}</td>
+              <td><button class="btn del" data-id="${q.id}">Remove</button></td></tr>`).join('')
+          : `<tr><td colspan="3" class="muted">No quests yet.</td></tr>`;
+      } catch (e) { fatal('loadQuests failed', e); }
+    }
+    addBtn.addEventListener('click', async () => {
+      const title = (qTitle.value || '').trim();
+      const points = Number(qPoints.value || 0);
+      if (!title || points <= 0) { alert('Enter title and positive points.'); return; }
+      try {
+        await addDoc(collection(db, 'quests'), { title, points, createdAt: Date.now(), seed: false });
+        qTitle.value = ''; qPoints.value = 10;
+        await Promise.all([loadQuests(), loadQuestNumbers()]);
+        alert('Quest added.');
+      } catch (e) { qSet('<div class="alert">Failed to add quest.</div>'); }
+    });
+    qBody.addEventListener('click', async (e) => {
+      const id = e.target?.dataset?.id; if (!id) return;
+      if (!confirm('Remove this quest?')) return;
+      try {
+        await deleteDoc(doc(db, 'quests', id));
+        await Promise.all([loadQuests(), loadQuestNumbers(), loadSubmissions()]);
+        alert('Quest removed.');
+      } catch (e) { qSet('<div class="alert">Failed to delete.</div>'); }
+    });
 
-    <!-- Submissions / Proofs -->
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-weight:800">Submitted Proofs</div>
-        <input id="subSearch" placeholder="Filter by email or quest title" style="min-width:260px">
-      </div>
-      <div id="subStatus" class="note" style="display:none"></div>
-      <table>
-        <thead>
-          <tr>
-            <th>Time</th><th>User</th><th>Quest</th><th>Points</th><th>Proof</th><th style="width:190px">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="subBody"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
-      </table>
-    </div>
+    // ---- Analytics ----
+    const kpiQuest = document.getElementById('kpi-quest-total');
+    const tblQuest = document.getElementById('tblQuestCounts');
+    const kpiMem = document.getElementById('kpi-member-total');
+    const tblWeek = document.getElementById('tblWeekCounts');
 
-    <!-- Users -->
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-weight:800">User Accounts</div>
-        <input id="searchUser" placeholder="Search email or name" style="min-width:240px">
-      </div>
-      <div id="uStatus" class="note" style="display:none"></div>
-      <table>
-        <thead>
-          <tr>
-            <th>Email</th><th>Name</th><th>Level</th><th>Points</th><th>Joined</th><th style="width:230px">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="userBody"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-
-  <script type="module">
-    // --------- Safe admin gate ---------
-    const who = localStorage.getItem('current_user') || '';
-    const guard = document.getElementById('guardMsg');
-    document.getElementById('logout').addEventListener('click', ()=>{ localStorage.removeItem('current_user'); location.href='login.html'; });
-    if (who !== 'adminaccess1111') {
-      guard.style.display = 'block';
-      guard.innerHTML = `Access denied. You are logged in as: <b>${who || '(none)'}</b>.<br>Log in as <b>adminaccess1111</b>.
-        <div style="margin-top:8px"><a class="btn" href="login.html">Go to Login</a></div>`;
-    } else {
-      initAdmin();
+    async function loadQuestNumbers() {
+      kpiQuest.textContent = 'Loading…';
+      tblQuest.innerHTML = `<tr><td colspan="2" class="muted">Loading…</td></tr>`;
+      try {
+        const snap = await getDocs(collection(db, 'completions'));
+        const byQ = {};
+        snap.forEach(d => {
+          const c = d.data();
+          const key = c.questTitle || c.questId || 'Unknown';
+          byQ[key] = (byQ[key] || 0) + 1;
+        });
+        const entries = Object.entries(byQ).sort((a, b) => b[1] - a[1]);
+        const total = entries.reduce((s, [, n]) => s + n, 0);
+        kpiQuest.textContent = `Total submissions: ${total}`;
+        tblQuest.innerHTML = entries.length
+          ? entries.map(([q, n]) => `<tr><td>${q}</td><td>${n}</td></tr>`).join('')
+          : `<tr><td colspan="2" class="muted">No completions yet.</td></tr>`;
+      } catch (e) { fatal('loadQuestNumbers failed', e); }
     }
 
-    // ---------------- MAIN ----------------
-    async function initAdmin(){
-      const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js");
-      const {
-        getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc,
-        query, where
-      } = await import("https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js");
+    function isoWeek(ms) {
+      const d = new Date(ms || Date.now());
+      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const day = date.getUTCDay() || 7;
+      date.setUTCDate(date.getUTCDate() + 4 - day);
+      const start = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+      const num = Math.ceil(((date - start) / 86400000 + 1) / 7);
+      return `${date.getUTCFullYear()}-W${String(num).padStart(2, '0')}`;
+    }
+    async function loadMemberNumbers() {
+      kpiMem.textContent = 'Loading…';
+      tblWeek.innerHTML = `<tr><td colspan="2" class="muted">Loading…</td></tr>`;
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        const byW = {};
+        snap.forEach(d => {
+          const u = d.data();
+          const w = isoWeek(u.createdAt || Date.now());
+          byW[w] = (byW[w] || 0) + 1;
+        });
+        const weeks = Object.keys(byW).sort();
+        const total = weeks.reduce((s, w) => s + byW[w], 0);
+        kpiMem.textContent = `Total new members counted: ${total}`;
+        tblWeek.innerHTML = weeks.length
+          ? weeks.map(w => `<tr><td>${w}</td><td>${byW[w]}</td></tr>`).join('')
+          : `<tr><td colspan="2" class="muted">No members yet.</td></tr>`;
+      } catch (e) { fatal('loadMemberNumbers failed', e); }
+    }
 
-      const cfg = {
-        apiKey:"AIzaSyDC_P0f0PX7USficIiac3QLM8ARaVJu3Ic",
-        authDomain:"levelupcrew-ec008.firebaseapp.com",
-        projectId:"levelupcrew-ec008",
-        messagingSenderId:"112573541497",
-        appId:"1:112573541497:web:9395e25f7eb141405838a8"
-      };
-      const app = initializeApp(cfg);
-      const db  = getFirestore(app);
+    // ---- Submissions ----
+    const subBody = document.getElementById('subBody');
+    const subSearch = document.getElementById('subSearch');
+    const subStatus = document.getElementById('subStatus');
+    let allSubs = [];
+    const subSet = h => { subStatus.style.display = 'block'; subStatus.innerHTML = h; };
+    const subClear = () => { subStatus.style.display = 'none'; subStatus.innerHTML = ''; };
 
-      // Error panel
-      const pageError = document.createElement('div');
-      pageError.style.cssText = 'max-width:1100px;margin:12px auto;padding:12px;border:1px solid #fecaca;background:#fee2e2;color:#7f1d1d;border-radius:12px;display:none';
-      document.body.prepend(pageError);
-      const fatal = (m,e)=>{ pageError.style.display='block'; pageError.innerHTML = `<b>Error:</b> ${m}<pre style="white-space:pre-wrap">${(e?.message||e||'')}</pre>`; console.error(m,e); };
-
-      document.getElementById('refreshAdmin').addEventListener('click', async ()=>{
-        await Promise.all([loadQuests(), loadQuestNumbers(), loadMemberNumbers(), loadSubmissions(), loadUsers()]);
-      });
-
-      // ---- Quests ----
-      const qTitle  = document.getElementById('qTitle');
-      const qPoints = document.getElementById('qPoints');
-      const addBtn  = document.getElementById('addQuest');
-      const qBody   = document.getElementById('questBody');
-      const qStatus = document.getElementById('qStatus');
-      const qSet = h=>{ qStatus.style.display='block'; qStatus.innerHTML=h; };
-      const qClear = ()=>{ qStatus.style.display='none'; qStatus.innerHTML=''; };
-
-      async function loadQuests(){
-        qBody.innerHTML = `<tr><td colspan="3" class="muted">Loading…</td></tr>`; qClear();
-        try{
-          const snap = await getDocs(collection(db,'quests'));
-          const items = snap.docs.map(d=>({ id:d.id, ...d.data() }))
-            .sort((a,b)=> (b.createdAt||0) - (a.createdAt||0));
-          qBody.innerHTML = items.length
-            ? items.map(q=>`<tr><td>${q.title||'(no title)'}</td><td>${q.points??0}</td>
-                <td><button class="btn del" data-id="${q.id}">Remove</button></td></tr>`).join('')
-            : `<tr><td colspan="3" class="muted">No quests yet.</td></tr>`;
-        }catch(e){ fatal('loadQuests failed', e); qBody.innerHTML = `<tr><td colspan="3" class="muted">—</td></tr>`; }
+    async function loadSubmissions() {
+      subBody.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
+      subClear();
+      try {
+        const snap = await getDocs(collection(db, 'completions'));
+        allSubs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        renderSubs(subSearch.value);
+      } catch (e) {
+        subSet('<div class="alert">Error loading submissions.</div>');
+        subBody.innerHTML = `<tr><td colspan="6" class="muted">—</td></tr>`;
       }
-      addBtn.addEventListener('click', async ()=>{
-        const title=(qTitle.value||'').trim(); const points=Number(qPoints.value||0);
-        if(!title || points<=0){ alert('Enter title and positive points.'); return; }
-        try{
-          await addDoc(collection(db,'quests'), { title, points, createdAt: Date.now(), seed:false });
-          qTitle.value=''; qPoints.value=10;
-          await Promise.all([loadQuests(), loadQuestNumbers()]);
-          alert('Quest added. Students will see it after refresh.');
-        }catch(e){ qSet('<div class="alert">Failed to add quest.</div>'); console.error(e); }
-      });
-      qBody.addEventListener('click', async (e)=>{
-        const id=e.target?.dataset?.id; if(!id) return;
-        if(!confirm('Remove this quest?')) return;
-        try{
-          await deleteDoc(doc(db,'quests',id));
-          await Promise.all([loadQuests(), loadQuestNumbers(), loadSubmissions()]);
-          alert('Quest removed.');
-        }catch(e){ qSet('<div class="alert">Failed to delete.</div>'); console.error(e); }
-      });
+    }
 
-      // ---- Numbers Analytics ----
-      const kpiQuest = document.getElementById('kpi-quest-total');
-      const tblQuest = document.getElementById('tblQuestCounts');
-      const kpiMem   = document.getElementById('kpi-member-total');
-      const tblWeek  = document.getElementById('tblWeekCounts');
+    function renderSubs(filter = '') {
+      const t = (filter || '').toLowerCase();
+      const list = allSubs.filter(s =>
+        !t ||
+        (s.user || '').toLowerCase().includes(t) ||
+        (s.questTitle || '').toLowerCase().includes(t)
+      );
 
-      async function loadQuestNumbers(){
-        kpiQuest.textContent='Loading…'; tblQuest.innerHTML = `<tr><td colspan="2" class="muted">Loading…</td></tr>`;
-        try{
-          const snap = await getDocs(collection(db,'completions'));
-          const byQ = {};
-          snap.forEach(d=>{ const c=d.data(); const key=c.questTitle||c.questId||'Unknown'; byQ[key]=(byQ[key]||0)+1; });
-          const entries = Object.entries(byQ).sort((a,b)=>b[1]-a[1]);
-          const total = entries.reduce((s,[,n])=>s+n,0);
-          kpiQuest.textContent = `Total submissions: ${total}`;
-          tblQuest.innerHTML = entries.length
-            ? entries.map(([q,n])=>`<tr><td>${q}</td><td>${n}</td></tr>`).join('')
-            : `<tr><td colspan="2" class="muted">No completions yet.</td></tr>`;
-        }catch(e){ fatal('loadQuestNumbers failed', e); }
+      if (!list.length) {
+        subBody.innerHTML = `<tr><td colspan="6" class="muted">No submissions.</td></tr>`;
+        return;
       }
 
-      function isoWeek(ms){
-        const d = new Date(ms||Date.now());
-        const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-        const day = date.getUTCDay() || 7;
-        date.setUTCDate(date.getUTCDate()+4-day);
-        const start = new Date(Date.UTC(date.getUTCFullYear(),0,1));
-        const num = Math.ceil(((date - start)/86400000 + 1)/7);
-        return `${date.getUTCFullYear()}-W${String(num).padStart(2,'0')}`;
-      }
-      async function loadMemberNumbers(){
-        kpiMem.textContent='Loading…'; tblWeek.innerHTML = `<tr><td colspan="2" class="muted">Loading…</td></tr>`;
-        try{
-          const snap = await getDocs(collection(db,'users'));
-          const byW = {};
-          snap.forEach(d=>{ const u=d.data(); const w=isoWeek(u.createdAt||Date.now()); byW[w]=(byW[w]||0)+1; });
-          const weeks = Object.keys(byW).sort();
-          const total = weeks.reduce((s,w)=>s+byW[w],0);
-          kpiMem.textContent = `Total new members counted: ${total}`;
-          tblWeek.innerHTML = weeks.length
-            ? weeks.map(w=>`<tr><td>${w}</td><td>${byW[w]}</td></tr>`).join('')
-            : `<tr><td colspan="2" class="muted">No members yet.</td></tr>`;
-        }catch(e){ fatal('loadMemberNumbers failed', e); }
-      }
+      subBody.innerHTML = list.map(s => {
+        const when = ''; // ★ TIME REMOVED COMPLETELY ★
 
-      // ---- Submissions (Proofs: photo-only, inline in Firestore) ----
-      const subBody = document.getElementById('subBody');
-      const subSearch = document.getElementById('subSearch');
-      const subStatus = document.getElementById('subStatus');
-      let allSubs = [];
-      const subSet=h=>{ subStatus.style.display='block'; subStatus.innerHTML=h; };
-      const subClear=()=>{ subStatus.style.display='none'; subStatus.innerHTML=''; };
+        const isDataUrl = typeof s.mediaUrl === 'string' && s.mediaUrl.startsWith('data:image/');
+        const thumb = s.mediaUrl
+          ? `<img class="thumb" src="${s.mediaUrl}" alt="proof">`
+          : '—';
+        const open = s.mediaUrl
+          ? `<a class="btn ghost" href="${s.mediaUrl}" target="_blank">Open</a>`
+          : '';
+        const dl = s.mediaUrl && isDataUrl
+          ? `<a class="btn ghost" href="${s.mediaUrl}" download="proof.jpg">Download</a>`
+          : (s.mediaUrl ? `<a class="btn ghost" href="${s.mediaUrl}" target="_blank" download>Download</a>` : '');
 
-      async function loadSubmissions(){
-        subBody.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
-        subClear();
-        try{
-          const snap = await getDocs(collection(db,'completions'));
-          allSubs = snap.docs.map(d=>({ id:d.id, ...d.data() }))
-            .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-          renderSubs(subSearch.value);
-        }catch(e){
-          subSet('<div class="alert">Error loading submissions.</div>');
-          console.error(e);
-          subBody.innerHTML = `<tr><td colspan="6" class="muted">—</td></tr>`;
-        }
-      }
+        return `<tr>
+          <td class="nowrap">${when}</td>
+          <td>${s.user || '—'}</td>
+          <td>${s.questTitle || s.questId || '—'}</td>
+          <td>${s.points ?? 0}</td>
+          <td>${thumb}</td>
+          <td class="actions">
+            ${open} ${dl}
+            <button class="btn del" data-del-sub="${s.id}">Remove</button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
 
-      function renderSubs(filter=''){
-        const t=(filter||'').toLowerCase();
-        const list = allSubs.filter(s => !t ||
-          (s.user||'').toLowerCase().includes(t) ||
-          (s.questTitle||'').toLowerCase().includes(t));
-        if(!list.length){ subBody.innerHTML = `<tr><td colspan="6" class="muted">No submissions.</td></tr>`; return; }
-        subBody.innerHTML = list.map(s=>{
-          const when = s.createdAt ? new Date(s.createdAt).toLocaleString() : '—';
-          const isDataUrl = typeof s.mediaUrl === 'string' && s.mediaUrl.startsWith('data:image/');
-          const thumb = s.mediaUrl
-            ? `<img class="thumb" src="${s.mediaUrl}" alt="proof">`
-            : '—';
-          const open = s.mediaUrl
-            ? `<a class="btn ghost" href="${s.mediaUrl}" target="_blank">Open</a>`
-            : '';
-          const dl = s.mediaUrl && isDataUrl
-            ? `<a class="btn ghost" href="${s.mediaUrl}" download="proof.jpg">Download</a>`
-            : (s.mediaUrl ? `<a class="btn ghost" href="${s.mediaUrl}" target="_blank" download>Download</a>` : '');
+    subSearch.addEventListener('input', () => renderSubs(subSearch.value));
+    subBody.addEventListener('click', async (e) => {
+      const id = e.target?.dataset?.delSub; if (!id) return;
+      if (!confirm('Remove this submission?')) return;
+      try {
+        await deleteDoc(doc(db, 'completions', id));
+        await loadSubmissions();
+      } catch (err) { alert('Failed to delete submission.'); }
+    });
+
+    // ---- Users ----
+    const uBody = document.getElementById('userBody');
+    const uStatus = document.getElementById('uStatus');
+    const search = document.getElementById('searchUser');
+    let allUsers = [];
+    const uSet = h => { uStatus.style.display = 'block'; uStatus.innerHTML = h; };
+    const uClear = () => { uStatus.style.display = 'none'; uStatus.innerHTML = ''; };
+
+    function renderUsers(filter = '') {
+      const term = (filter || '').trim().toLowerCase();
+      const list = allUsers.filter(u =>
+        !term ||
+        (u.email || '').toLowerCase().includes(term) ||
+        (u.displayName || '').toLowerCase().includes(term)
+      );
+
+      uBody.innerHTML = list.length
+        ? list.map(u => {
+          const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—';
           return `<tr>
-            <td class="nowrap">${when}</td>
-            <td>${s.user||'—'}</td>
-            <td>${s.questTitle||s.questId||'—'}</td>
-            <td>${s.points??0}</td>
-            <td>${thumb}</td>
-            <td class="actions">
-              ${open} ${dl}
-              <button class="btn del" data-del-sub="${s.id}">Remove</button>
+            <td>${u.email || '—'}</td>
+            <td>${u.displayName || '—'}</td>
+            <td>${u.level ?? 0}</td>
+            <td>${u.points ?? 0}</td>
+            <td>${joined}</td>
+            <td>
+              <button class="btn" data-reset="${u.email}">Reset Passbook</button>
+              <button class="btn del" data-del="${u.email}">Delete</button>
             </td>
           </tr>`;
-        }).join('');
-      }
-      subSearch.addEventListener('input', ()=>renderSubs(subSearch.value));
-      subBody.addEventListener('click', async (e)=>{
-        const id = e.target?.dataset?.delSub; if(!id) return;
-        if(!confirm('Remove this submission?')) return;
-        try{
-          await deleteDoc(doc(db,'completions', id));
-          await loadSubmissions();
-        }catch(err){ console.error(err); alert('Failed to delete submission.'); }
-      });
-
-      // ---- Users ----
-      const uBody = document.getElementById('userBody');
-      const uStatus = document.getElementById('uStatus');
-      const search = document.getElementById('searchUser');
-      let allUsers = [];
-      const uSet=h=>{uStatus.style.display='block';uStatus.innerHTML=h;}; const uClear=()=>{uStatus.style.display='none';uStatus.innerHTML='';};
-
-      function renderUsers(filter=''){
-        const term=(filter||'').trim().toLowerCase();
-        const list = allUsers.filter(u => !term ||
-          (u.email||'').toLowerCase().includes(term) || (u.displayName||'').toLowerCase().includes(term));
-        uBody.innerHTML = list.length
-          ? list.map(u=>{
-              const joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—';
-              return `<tr>
-                <td>${u.email||'—'}</td><td>${u.displayName||'—'}</td>
-                <td>${u.level??0}</td><td>${u.points??0}</td><td>${joined}</td>
-                <td>
-                  <button class="btn" data-reset="${u.email}">Reset Passbook</button>
-                  <button class="btn del" data-del="${u.email}">Delete</button>
-                </td>
-              </tr>`;
-            }).join('')
-          : `<tr><td colspan="6" class="muted">No users found.</td></tr>`;
-      }
-
-      async function loadUsers(){
-        uBody.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`; uClear();
-        try{
-          const snap = await getDocs(collection(db,'users'));
-          allUsers = snap.docs.map(d=>({ id:d.id, ...d.data() })).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-          renderUsers(search.value);
-        }catch(e){ uSet('<div class="alert">Error loading users.</div>'); console.error(e); }
-      }
-      search.addEventListener('input', ()=>renderUsers(search.value));
-      uBody.addEventListener('click', async (e)=>{
-        const email = e.target?.dataset?.reset || e.target?.dataset?.del; if(!email) return;
-        if(e.target.dataset.reset){
-          const pass = prompt(`Enter new passbook number for:\n${email}`); if(!pass) return;
-          try{ await updateDoc(doc(db,'users',email), { password:String(pass) }); alert('Passbook updated.'); }
-          catch(err){ console.error(err); alert('Failed to update.'); }
-          return;
-        }
-        if(e.target.dataset.del){
-          if(!confirm(`Delete this account and their completions?\n${email}`)) return;
-          try{
-            const cs = await getDocs(query(collection(db,'completions'), where('user','==',email)));
-            await Promise.all(cs.docs.map(d=> deleteDoc(doc(db,'completions',d.id))));
-            await deleteDoc(doc(db,'users',email));
-            await Promise.all([loadUsers(), loadMemberNumbers()]);
-            alert('User deleted.');
-          }catch(err){ console.error(err); alert('Failed to delete.'); }
-        }
-      });
-
-      // initial load
-      try{ await loadQuests(); } catch(e){ fatal('init loadQuests', e); }
-      try{ await loadQuestNumbers(); } catch(e){ fatal('init loadQuestNumbers', e); }
-      try{ await loadMemberNumbers(); } catch(e){ fatal('init loadMemberNumbers', e); }
-      try{ await loadSubmissions(); } catch(e){ fatal('init loadSubmissions', e); }
-      try{ await loadUsers(); } catch(e){ fatal('init loadUsers', e); }
+        }).join('')
+        : `<tr><td colspan="6" class="muted">No users found.</td></tr>`;
     }
-  </script>
-</body>
-</html>
+
+    async function loadUsers() {
+      uBody.innerHTML = `<tr><td colspan="6" class="muted">Loading…</td></tr>`;
+      uClear();
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        allUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        renderUsers(search.value);
+      } catch (e) { uSet('<div class="alert">Error loading users.</div>'); }
+    }
+
+    search.addEventListener('input', () => renderUsers(search.value));
+    uBody.addEventListener('click', async (e) => {
+      const email = e.target?.dataset?.reset || e.target?.dataset?.del;
+      if (!email) return;
+
+      if (e.target.dataset.reset) {
+        const pass = prompt(`Enter new passbook number for:\n${email}`);
+        if (!pass) return;
+        try {
+          await updateDoc(doc(db, 'users', email), { password: String(pass) });
+          alert('Passbook updated.');
+        } catch (err) { alert('Failed to update.'); }
+        return;
+      }
+
+      if (e.target.dataset.del) {
+        if (!confirm(`Delete this account and their completions?\n${email}`)) return;
+        try {
+          const cs = await getDocs(query(collection(db, 'completions'), where('user', '==', email)));
+          await Promise.all(cs.docs.map(d => deleteDoc(doc(db, 'completions', d.id))));
+          await deleteDoc(doc(db, 'users', email));
+          await Promise.all([loadUsers(), loadMemberNumbers()]);
+          alert('User deleted.');
+        } catch (err) { alert('Failed to delete.'); }
+      }
+    });
+
+    // Initial loads
+    try { await loadQuests(); } catch (e) { fatal('init loadQuests', e); }
+    try { await loadQuestNumbers(); } catch (e) { fatal('init loadQuestNumbers', e); }
+    try { await loadMemberNumbers(); } catch (e) { fatal('init loadMemberNumbers', e); }
+    try { await loadSubmissions(); } catch (e) { fatal('init loadSubmissions', e); }
+    try { await loadUsers(); } catch (e) { fatal('init loadUsers', e); }
+  }
+</script>
+
+
 
 
