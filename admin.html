@@ -43,9 +43,9 @@
   </div>
 </header>
 
-
   <div class="wrap">
     <div id="guardMsg" class="card alert" style="display:none"></div>
+
 
     <!-- Add Quest -->
     <div class="card">
@@ -100,6 +100,8 @@
       <table>
         <thead>
           <tr>
+            <th>Time</th><th>User</th><th>Quest</th><th>Points</th><th>Proof</th><th style="width:190px">Actions</th>
+          </tr>
         </thead>
         <tbody id="subBody"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody>
       </table>
@@ -123,6 +125,8 @@
     </div>
   </div>
 
+
+
   <script type="module">
     // --------- Safe admin gate ---------
     const who = localStorage.getItem('current_user') || '';
@@ -134,6 +138,7 @@
         <div style="margin-top:8px"><a class="btn" href="login.html">Go to Login</a></div>`;
     } else {
       initAdmin();
+
     }
 
     // ---------------- MAIN ----------------
@@ -154,15 +159,18 @@
       const app = initializeApp(cfg);
       const db  = getFirestore(app);
 
+
       // Error panel
       const pageError = document.createElement('div');
       pageError.style.cssText = 'max-width:1100px;margin:12px auto;padding:12px;border:1px solid #fecaca;background:#fee2e2;color:#7f1d1d;border-radius:12px;display:none';
       document.body.prepend(pageError);
       const fatal = (m,e)=>{ pageError.style.display='block'; pageError.innerHTML = `<b>Error:</b> ${m}<pre style="white-space:pre-wrap">${(e?.message||e||'')}</pre>`; console.error(m,e); };
 
+
       document.getElementById('refreshAdmin').addEventListener('click', async ()=>{
         await Promise.all([loadQuests(), loadQuestNumbers(), loadMemberNumbers(), loadSubmissions(), loadUsers()]);
       });
+
 
       // ---- Quests ----
       const qTitle  = document.getElementById('qTitle');
@@ -210,6 +218,7 @@
       const tblQuest = document.getElementById('tblQuestCounts');
       const kpiMem   = document.getElementById('kpi-member-total');
       const tblWeek  = document.getElementById('tblWeekCounts');
+
 
       async function loadQuestNumbers(){
         kpiQuest.textContent='Loading…'; tblQuest.innerHTML = `<tr><td colspan="2" class="muted">Loading…</td></tr>`;
@@ -347,6 +356,8 @@
           allUsers = snap.docs.map(d=>({ id:d.id, ...d.data() })).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
           renderUsers(search.value);
         }catch(e){ uSet('<div class="alert">Error loading users.</div>'); console.error(e); }
+
+
       }
       search.addEventListener('input', ()=>renderUsers(search.value));
       uBody.addEventListener('click', async (e)=>{
@@ -379,6 +390,7 @@
   </script>
 </body>
 </html>
+
 
 
 
